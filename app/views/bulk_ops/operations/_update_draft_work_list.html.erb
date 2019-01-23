@@ -1,0 +1,32 @@
+<div id="work-list" class="lister">
+    <h4>List of works included in the new bulk update </h3>
+        <%= form_tag("#{@operation.id}/edit") do %>
+            <ul>
+                <li id="template" class="hidden">
+                    <input type="checkbox" name="selected_work_ids[]" value=""/>
+                    <%= image_tag("", height: '200', class: 'work-thumb') %>
+                    <div class="work-title"></div>
+                    <div class="work-desription"></div>
+                </li>
+                <% @draft_works.each do |work| %>
+                    <% doc = SolrDocument.find(work.id) %>
+                    <li>
+                        <input class="remove-work-id" type="checkbox" name="remove_work_ids[]" value="<%= work.id %>" />
+                        <%= image_tag(doc.thumbnail_path, height: '200', class: 'work-thumb') %>
+                        <div class="work-title"><%=doc.title.join(", ")%></div>
+                        <div class="work-desription"><%=doc.description.join(", ")%></div>
+                    </li>
+                <% end %>
+            </ul>
+            <div id="work-list-controls" >
+                <button type="button" class="select-all">Select All</button>
+                <button type="button" class="select-none">Select None</button>
+                <input type="submit" name="remove_works" id="remove-works" value="Remove Checked Works From List" />
+            </div>
+        <% end %>
+    <p id="draft-empty-message"  <%= 'class=hidden' unless @draft_works.blank? %> >
+        There are no works in this update so far. Search for works in the box on the right and then add them to this update. Then when all the right works are selected, you can finalize the list of works to update and generate a spreadsheet of metadata to edit.
+    </p>
+</div>    
+
+

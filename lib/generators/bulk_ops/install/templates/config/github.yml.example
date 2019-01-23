@@ -1,0 +1,28 @@
+development:
+  repo:
+  client_id:
+  client_secret:
+  webhook_secret:
+  default_user:
+  default_password:
+test:
+  repo: 
+  client_id: 
+  client_secret: 
+  webhook_secret:
+  default_user:
+  default_password:
+staging:
+  repo: 
+  client_id: 
+  client_secret: 
+  webhook_secret:
+  default_user:
+  default_password:
+production:
+  repo: 
+  client_id: 
+  client_secret:   
+  webhook_secret:
+  default_user:
+  default_password:

@@ -1,0 +1,56 @@
+<div id="operation-header">
+    <h2><%= @operation.name%> </h2>
+    <h3><%= @operation.stage %></h3>
+    <p id="status"> Status: <%= @operation.status %></p>
+    <p id="message"><%= @operation.message %></p>
+</div>
+
+<div id="operation-progress"></div>
+
+  <script>
+  $( function() {
+    $( "#operation-progress" ).progressbar({value: <%= @num_complete * 100 / @num_works %>});
+  } );
+  </script>
+
+<div class="operation-info">
+    <label> Total works to <%= @operation.operation_type %>:</label> <%= @num_works%>
+</div>
+
+<div class="operation-info">
+    <label> Works queued up and waiting:</label> <%= @num_queued %>
+</div>
+
+<div class="operation-info">
+    <label> Works currently being <%= @operation.operation_type %>ed:</label> <%= @num_running %>
+</div>
+
+<div class="operation-info">
+    <label> Works that failed to <%= @operation.operation_type %>:</label> <%= @num_failed %>
+</div>
+
+<div class="operation-info">
+    <label> Works that completed successfully:</label> 
+    <a href="TODO MAKE THIS LINK WORK"><%= @num_complete %></a>
+</div>
+
+<% if @operation.operation_type == "update" %>
+    <button id="new-operation-all"> Create new update from all works in this update</button>
+<% end %>
+<button id="new-operation-completed"> Create new update from all works that have completed this <%= @operation.operation_type%></button>
+<button id="new-operation-failed"> Create new <%= @operation.operation_type %> from all works that have failed this <%= @operation.operation_type%></button>
+
+
+<div id="log">
+
+
+
+
+</div>
+
+<div id="error_log">
+
+
+
+
+</div>

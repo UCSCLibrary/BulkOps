@@ -1,0 +1,7 @@
+<%= javascript_include_tag "embed" %>
+<%= javascript_include_tag "bulk_ops" %>
+<%= stylesheet_link_tag "bulk_ops" %>
+<h3>Bulk <%=@operation.operation_type.titleize%></h3>
+<h1><%=@operation.name%></h1>
+
+<%= render "show_#{@operation.stage}"%>

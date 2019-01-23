@@ -1,0 +1,10 @@
+<%= javascript_include_tag "bulk_ops" %>
+<h1>Bulk Operations </h1>
+<%= render "bulk_ops/github_auth_widget" %>
+<ul id="operations-index">
+    <% @active_operations.each do |operation| %>
+        <li>
+            <%= link_to(operation.name,operation)%>
+        </li>
+    <% end %>
+</ul>

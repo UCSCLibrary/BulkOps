@@ -1,0 +1,19 @@
+<div id="notification-options">
+    <label>Whom would you like to notify when this bulk operation moves forward?</label>
+    <ul id="notifications"> 
+        <% @notified_users.each do |user| %>
+            <% next if user.nil? %>
+            <li>
+                <button class="remove_user_notification" onclick="$(this).parent().remove()">Remove</button>
+                <input type="hidden" name="notified_users[]" value="<%= user.email %>"/>
+                <%= user.email %>
+            </li>
+        <% end %>
+    </ul>
+    <div>
+        <label> Enter email of other user to notify: </label>
+        <input type="text" name="add-user-notification" id="add-user-notification"/> 
+        <button type="button" id="add-user-notification" onclick="name=$(this).siblings('input#add-user-notification').val();$('<li><button class=remove_user_notification onclick=$(this).parent().remove()>Remove</button><input type=hidden name=notified-users[] value='+name+' /> '+name+'</li>').appendTo('ul#notifications')">Add</button>
+    </div>
+</div>
+

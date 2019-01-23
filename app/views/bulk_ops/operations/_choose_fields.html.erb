@@ -1,0 +1,11 @@
+<div id="fields_options">
+    <label>Fields for Spreadsheet</label> <p>Which metadata fields would you like to include on the template spreadsheet we prepare for this bulk operation? Including all the fields you plan to use here will make it easier to format your spreadsheet flawlessly</p>
+
+    <select id="fields" name="fields[]" multiple size=8>
+        <% @all_fields.each do |field| %>
+            <% next if field.nil? %>
+            <option value="<%=field%>" <%= "selected" if @default_fields.include?(field) %> > <%=field%></option>
+        <% end %>
+    </select>
+</div>
+

@@ -1,0 +1,12 @@
+<div id="github-auth">
+    <% if @github_username %>
+        You are logged in to Github as <strong><%= @github_username %></strong>.
+        <%= form_tag("/bulk_ops/github_logout/#{current_user.id}", method: :post) do %>
+            <input type="submit" name="logout" value="Logout" />
+        <% end %>
+    <% else %>
+        <a href="<%= BulkOps::GithubAccess.auth_url(current_user) %>" >
+            <button>Log in to Github</button>
+        </a>
+    <% end %>
+</div>

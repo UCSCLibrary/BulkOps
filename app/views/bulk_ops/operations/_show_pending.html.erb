@@ -1,0 +1,48 @@
+
+<h3> Actions </h3>
+<div id="bulk-operation-actions">
+    <div class=op-action>
+        <p class="big">Download the current metadata spreadsheet as a csv file</p>
+        <p>You can then edit this file in your favorite spreadsheet editor, and re-upload the edited file in the section below.</p>
+        <%= link_to("/bulk_ops/#{@operation.id}/csv", target: :_blank) do %> 
+            <button>Download</button>
+        <% end %>
+    </div>
+
+    <%= form_for @operation, :html => { :multipart => true } do |f| %>
+        
+        <div class="op-action" id="spreadsheet-input">
+            <p class="big">Upload a new version of your metadata spreadsheet</p>
+            <div>
+                <label>New Spreadsheet:</label>
+                <%= file_field_tag "spreadsheet" %>
+            </div>        
+            <%= render "git_message" %>
+            <input type=submit id="upload-spreadsheet" name="upload_spreadsheet" value="Upload" />
+        </div>
+
+        <div class="op-action" id="edit-options">
+            <%= render "#{@operation.operation_type}_options" %>
+
+
+
+            <% unless @operation.operation_type.downcase == "ingest" %>
+                <%= render "git_message" %>
+                <input type="submit" name ="edit_options" value="Save Changes" />
+            <% end %>
+        </div>
+
+    <% end %>
+
+    <%= form_tag("#{@operation.id}/destroy") do %>
+        <p class="big">Cancel and delete this bulk <%=@operation.type %> completely</p>
+        <%= render "git_message" %>
+        <%= submit_tag("Cancel/Delete") %>
+    <% end %>
+
+    <%= form_tag("/bulk_ops/#{@operation.id}/request_apply") do %> 
+        <p class="big">Flag that the spreadsheet is ready after the final version has been uploaded and the bulk <%= @operation.operation_type %> is ready to apply. Approval from another administator may be necessary.</p>
+        <%= render "git_message" %>
+        <%= submit_tag "Finished" %>
+    <% end %>
+</div>

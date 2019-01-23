@@ -1,0 +1,13 @@
+<h3>Awaiting Approval </h1>
+<div>
+    <p>This bulk <%=@operation.operation_type%> is waiting for approval before it can be applied.</p>
+    <% if @operation.can_merge? %>
+        <p> You have the authority to approve this <%=@operation.type%> and apply it immediately. </p>
+        <%= form_tag("#{@operation.id}/approve") do %>
+            <%= render "git_message" %>
+            <%= submit_tag 'Approve & Apply Now'  %>
+        <% end %>
+    <% else %>
+        <p> Contact the DAMS administrators to approve your bulk <%=@operation.type%>.
+    <% end %>
+</div>

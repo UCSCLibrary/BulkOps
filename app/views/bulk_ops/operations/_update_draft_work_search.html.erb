@@ -1,0 +1,47 @@
+<div id="add-works" class="lister">
+    <h3>Add Works to Update List</h3>
+
+    <div>    
+        <label> Collection </label>
+        <select><%= options_for_select @collections.insert(0,["Any",""]) %> </select>
+    </div>
+    <div>    
+        <label> Administrative Set </label>
+        <select> <%= options_for_select @admin_sets.insert(0,["Any",""]) %> </select>
+    </div>
+    <div>    
+        <label> Workflow Step </label>
+        <select> <%= options_for_select @workflow_states.insert(0,["Any",""]) %></select>
+    </div>
+    
+    <div>
+        <label> keyword search </label>
+        <input type="text" name="q" />
+    </div>
+
+    <button id="add-works-search" type="button"> Search </button>
+
+    <div id="search-summary">
+        <%= form_tag("#{@operation.id}/edit") do %>
+            <div id="draft-search-controls">
+                <button type="button" class="select-all">Select All</button>
+                <button type="button" class="select-none">Select None</button>
+                <input type="submit"  id="draft-update-add-works" value="Add to Update" />
+            </div>
+            <div id="draft-search-display">
+                <p id="count"></p>
+                <ul id="search-sample">
+                    <li id="template" class="hidden">
+                        <input type="checkbox" name="added_work_ids[]" value=""/>
+                        <%= image_tag("", height: '200', class: 'work-thumb') %>
+                        <div class="work-title"></div>
+                        <div class="work-desription"></div>
+                    </li>
+                </ul>
+            </div>
+        <% end %>
+    </div>
+
+
+</div>
+
