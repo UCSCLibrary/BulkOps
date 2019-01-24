@@ -15,8 +15,8 @@ class BulkOps::InstallGenerator < Rails::Generators::Base
   end
 
   def inject_sidebar_widget
-    insert_into_file "app/views/hyrax/dashboard/sidebar/_ingests.html.erb" do
-      %{\n <%= render 'bulk_ops/bulk_ops_sidebar_widget', menu: menu %> \n}
+    append_to_file "app/views/hyrax/dashboard/sidebar/_ingests.html.erb" do
+      %{\nRails.application.config.assets.precompile += %w( bulk_ops.js )\nRails.application.config.assets.precompile += %w( bulk_ops.css )\n}
     end
   end
 
