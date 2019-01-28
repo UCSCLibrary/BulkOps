@@ -2,12 +2,14 @@ module BulkOps
   class OperationsController < ApplicationController
 
     skip_before_action :verify_authenticity_token, only: [:apply]
+    before_action :define_presenter
     before_action :ensure_admin!
     before_action :github_auth, only: [:index]
     before_action :initialize_options, only: [:new,:show,:edit, :update]
     before_action :initialize_operation, only: [:edit, :destroy, :show, :request_apply, :approve, :csv, :errors, :log, :update, :request, :duplicate]
     layout 'dashboard'
     attr_accessor :git
+
 
     def index
       branches = BulkOps::GithubAccess.list_branch_names current_user
@@ -315,6 +317,10 @@ module BulkOps
     #TODO
     def ensure_admin!
       # Do appropriate user authorization for this. Based on workflow roles / privileges? Or just user roles?
+    end
+
+    def define_presenter
+      @presenter = Hyrax::Admin::DashboardPresenter.new
     end
 
     def github_auth
