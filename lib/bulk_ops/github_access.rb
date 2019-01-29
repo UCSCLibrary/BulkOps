@@ -166,12 +166,12 @@ class BulkOps::GithubAccess
 
   def load_options branch: nil
     branch ||= name
-    YAML.load(Base64.decode64(get_file_contents(options_path)))
+    YAML.load(Base64.decode64(get_file_contents(options_path, ref: branch)))
   end
 
   def load_metadata branch: nil, return_headers: false
     branch ||= name
-    CSV.parse(Base64.decode64(get_file_contents(spreadsheet_path, branch)), {headers: true, return_headers: return_headers})
+    CSV.parse(Base64.decode64(get_file_contents(spreadsheet_path, ref: branch)), {headers: true, return_headers: return_headers})
   end
 
   def log_ingest_event log_level, row_number, event_type, message, commit_sha = nil
