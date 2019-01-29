@@ -72,29 +72,16 @@ module BulkOps
 
       headers.each do |column_name|
         next if column_name.blank?
-        column_name_camel = downcase_first_letter(column_name.parameterize.underscore.camelize)
-        column_name_original = column_name
-        column_name = column_name.parameterize.underscore
-
+        column_name_redux = column_name.downcase.parameterize.gsub(/[_\s-]/,"")
         # Ignore everything marked as a label
-        next if column_name.ends_with? "_label"
-        
+        next if column_name_redux.ends_with? "label"
         # Ignore any column names with special meaning in hyrax
-        next if BulkOps::Operation::SPECIAL_COLUMNS.include?(column_name)
-        next if BulkOps::Operation::SPECIAL_COLUMNS.include?(column_name_original)
-        next if BulkOps::Operation::SPECIAL_COLUMNS.include?(column_name_camel) 
-
+        next if BulkOps::Operation::SPECIAL_COLUMNS.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
         # Ignore any columns speficied to be ignored in the configuration
         ignored = options["ignored headers"] || []
-        next if ignored.include?(column_name) 
-        next if ignored.include?(column_name_camel)
-        next if ignored.include?(column_name_original)
-        
+        next if ignored.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
         # Column names corresponding to work attributes are legit
-        next if Work.attribute_names.include? column_name
-        next if Work.attribute_names.include? column_name_camel
-        next if Work.attribute_names.include? column_name_original
-
+        next if Work.attribute_names.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
         @verification_errors << BulkOps::Error.new({type: :bad_header, field: column_name})
       end
       return errors
