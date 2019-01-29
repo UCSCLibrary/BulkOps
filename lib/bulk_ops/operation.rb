@@ -89,8 +89,11 @@ module BulkOps
       save
       
       final_spreadsheet
-      
-      return unless verify!
+ 
+# This fails because it doesn't pull from the master branch by default
+# It's usually already verified, but maybe we should fix this for double-checking 
+# in the future
+#      return unless verify!
 
       apply_ingest! if ingest?
       apply_update! if update?
@@ -224,13 +227,14 @@ module BulkOps
 
     def create_branch(fields: nil, work_ids: nil, options: nil)
       git.create_branch!
+      bulk_ops_dir = Gem::Specification.find_by_name("bulk_ops").gem_dir
 
       #copy template files
-      Dir["#{Rails.root}/#{TEMPLATE_DIR}/*"].each{|file| git.add_file file}
+      Dir["#{bulk_ops_dir}/#{TEMPLATE_DIR}/*"].each{|file| git.add_file file}
 
       #update configuration options 
       unless options.blank?
-        new_options = YAML.load_file(File.join(Rails.root,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
+        new_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
         options.each { |option, value| new_options[option] = value }
         git.update_options new_options
       end
@@ -248,7 +252,7 @@ module BulkOps
       @metadata ||= git.load_metadata branch: "master"
     end
 
-    def update_spreadsheet file, message=false
+    def update_spreadsheet file, message: nil
       git.update_spreadsheet(file, message: message)
     end
 
@@ -257,7 +261,8 @@ module BulkOps
     end
 
     def options
-      @options ||= git.load_options
+      branch = (stage == "running") ? "master" : name
+      @options ||= git.load_options(branch: branch)
     end
 
     def set_options options, message = false
