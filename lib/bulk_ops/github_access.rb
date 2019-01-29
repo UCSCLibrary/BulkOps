@@ -87,8 +87,8 @@ class BulkOps::GithubAccess
     self.new(name).add_contents file_name, contents, message
   end
 
-  def self.load_options name
-    self.new(name).load_options
+  def self.load_options name, branch: nil
+    self.new(name).load_options branch: branch
   end
 
   def self.load_metadata branch:, return_headers: false
@@ -155,7 +155,7 @@ class BulkOps::GithubAccess
     message ||= "updating metadata spreadsheet through hyrax browser interface."
     sha = get_file_sha(spreadsheet_path)
     file = File.new(file) if file.is_a?(String) && Pathname(file).exist?
-    client.update_contents(repo, spreadsheet_path, message, sha, File.open(file).read, branch: name)
+    client.update_contents(repo, spreadsheet_path, message, sha, file.read, branch: name)
   end
 
   def update_options options, message: false
@@ -164,7 +164,8 @@ class BulkOps::GithubAccess
     client.update_contents(repo, options_path, message, sha, YAML.dump(options), branch: name)
   end
 
-  def load_options 
+  def load_options branch: nil
+    branch ||= name
     YAML.load(Base64.decode64(get_file_contents(options_path)))
   end
 
@@ -210,7 +211,7 @@ class BulkOps::GithubAccess
     client.contents(repo, path: filename, ref: name)
   end
 
-  def get_file_contents filename, ref=nil
+  def get_file_contents filename, ref: nil
     ref ||= name
     client.contents(repo, path: filename, ref: ref)[:content]
   end
