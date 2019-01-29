@@ -7,9 +7,9 @@ module BulkOps
     before_action :github_auth, only: [:index]
     before_action :initialize_options, only: [:new,:show,:edit, :update]
     before_action :initialize_operation, only: [:edit, :destroy, :show, :request_apply, :approve, :csv, :errors, :log, :update, :request, :duplicate]
-    layout 'dashboard'
+    with_themed_layout 'dashboard'
     attr_accessor :git
-
+    helper :hyrax
 
     def index
       branches = BulkOps::GithubAccess.list_branch_names current_user
