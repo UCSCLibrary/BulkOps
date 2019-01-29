@@ -228,7 +228,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       # Move on if this field is the name of another property (e.g. masterFilename)
       next if find_field_name(field)
       # Ignore fields that aren't file fields
-      field_parts = field.underscore.humanize.downcase.gsub("[-_]",' ').split(" ")
+      field_parts = field.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
       next unless field_parts.any?{ |field_type| FILE_FIELDS.include?(field_type) }
       # Check if we are removing a file
       if (field_parts.any? {|action| ["remove","delete"].include?(action) })
