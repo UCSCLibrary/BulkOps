@@ -48,7 +48,20 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return metadata
   end
 
+  def proxy_errors
+    @proxy_errors ||= []
+  end
+
   private 
+
+
+  def record_exists? id
+    begin
+      return true if SolrDocument.find(id)
+    rescue Blacklight::Exceptions::RecordNotFound
+      return false
+    end
+  end
 
   def localAuthUrl(property, value) 
     return value if (auth = getLocalAuth(property)).nil?
@@ -97,6 +110,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   end
 
   def downcase_first_letter(str)
+    return "" unless str
     str[0].downcase + str[1..-1]
   end
 
@@ -182,7 +196,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     
     # Actually add all the data
     metadata = {}
-    leftover_data = raw_data.dup
+    leftover_data = raw_data.dup.to_hash
     controlled_data.each do |property_name, data|
       data.each do |datum| 
         atts = {"id" => datum[:id]}
@@ -199,6 +213,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   def interpret_scalar_fields raw_data
     metadata = {}
     raw_data.each do |field, values| 
+      next if value.nil? or field.nil? or field == value
       values.split(SEPARATOR).each do |value|
         field = field.to_s
         #If our CSV interpreter is feeding us the headers as a line, ignore it.
@@ -227,21 +242,27 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       next if field == value
       # Move on if this field is the name of another property (e.g. masterFilename)
       next if find_field_name(field)
+      #hack for now
+      next if field.downcase.include("master")
       # Ignore fields that aren't file fields
       field_parts = field.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
       next unless field_parts.any?{ |field_type| FILE_FIELDS.include?(field_type) }
       # Check if we are removing a file
       if (field_parts.any? {|action| ["remove","delete"].include?(action) })
-        if SolrDocument.find(value)
+        if record_exists?(value)
+          # the value corresponds to an existing work id
           file_id = value 
         else
+          # there is no work with this id, so treat it as a label
+          # and see if any file set has an overlapping label
           work.file_sets.each{|fs| file_id = fs.id if (fs.label.include?(value) or value.include?(fs.label)) }
         end
-        #Delete the file sometime later
+        #Delete the file in the background, if we found one
         BulkOps::DeleteFileSetJob.perform_later(file_id, operation.user.email ) if file_id
       else
         # Add a file
         begin
+          puts "FULL FILE NAME: #{value}, pATH: #{File.join(BulkOps::Operation::BASE_PATH}"
           file = File.open(File.join(BulkOps::Operation::BASE_PATH,value))
           uploaded_file = Hyrax::UploadedFile.create(file: file, user: operation.user)
           (metadata[:uploaded_files] ||= []) << uploaded_file.id unless uploaded_file.id.nil?
