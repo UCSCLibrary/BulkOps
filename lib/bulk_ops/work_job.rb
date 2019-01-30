@@ -25,7 +25,7 @@ class BulkOps::WorkJob < ActiveJob::Base
 
     # Attempt to resolve each dangling (objectless) relationships using   
     # this work as an object
-    BulkMetadata::Relationship.where(:status => "objectless").each do |relationship|
+    BulkOps::Relationship.where(:status => "objectless").each do |relationship|
       relationship.resolve! @work.id
     end
 
@@ -51,7 +51,7 @@ class BulkOps::WorkJob < ActiveJob::Base
       report_error("Cannot find work proxy with id: #{work_proxy_id}") 
       return
     end
-    if SolrDocument.find(@work_proxy.work_id)
+    if record_exists?(@work_proxy.work_id)
       # The work exists in Solr. Presumably we're updating it. 
       # Report an error if we can't retrieve the work from Fedora.
       begin
@@ -76,6 +76,14 @@ class BulkOps::WorkJob < ActiveJob::Base
   end
 
   private
+
+  def record_exists? id
+    begin
+      return true if SolrDocument.find(id)
+    rescue Blacklight::Exceptions::RecordNotFound
+      return false
+    end
+  end
 
   def report_error message=nil
     update_status "job_error", message: message
