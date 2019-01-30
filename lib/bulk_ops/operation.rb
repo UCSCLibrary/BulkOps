@@ -78,19 +78,16 @@ module BulkOps
     end
     
     def set_stage new_stage
-      self.stage = new_stage
-      save
+      update(stage: new_stage)
     end
 
     def apply!
       status = "#{type}ing"
-      stage = "running"
-      message = "#{type.titleize} initiated by #{user.name || user.email}"
-      save
-      
+      update({stage: running, message: "#{type.titleize} initiated by #{user.name || user.email}"})
+#      @stage = "running"
       final_spreadsheet
  
-# This fails because it doesn't pull from the master branch by default
+# This commented line currently fails because it doesn't pull from the master branch by default
 # It's usually already verified, but maybe we should fix this for double-checking 
 # in the future
 #      return unless verify!
@@ -115,8 +112,7 @@ module BulkOps
       reload
       #loop through the work proxies to create a job for each work
       work_proxies.each do |proxy|
-        proxy.message = "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message
-        proxy.save
+        proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
 
         data = proxy.interpret_data @metadata[proxy.row_number] 
         
@@ -135,16 +131,13 @@ module BulkOps
     def delete_all
       work_proxies.each do |proxy| 
         ActiveFedora::Base.find(proxy.work_id).destroy 
-        proxy.status = "destroyed"
-        proxy.message = "The work created by this proxy was destroyed by the user"
-        proxy.save
+        proxy.update(status: "destroyed", message: "The work created by this proxy was destroyed by the user")
       end
     end
 
     def check_if_finished
       return unless stage == "running" && !busy?
-      stage = accumulated_errors.blank? ? "complete" : "errors"
-      save
+      update(stage: accumulated_errors.blank? ? "complete" : "errors" )
       report_errors!
       lift_holds
     end
@@ -171,17 +164,15 @@ module BulkOps
         #proxy = BulkOps::WorkProxy.find_by(operation_id: id, work_id: values["work_id"])
         if (proxy = work_proxies.find_by(work_id: work_id))
           abandoned_proxies.delete(proxy)
-          proxy.status = "updating"
-          proxy.row_number = row_number
-          proxy.message = "update initiated by #{user.name || user.email}"
-          proxy.save
+          proxy.update(status: "updating",
+                       row_number: row_number,
+                       message: "update initiated by #{user.name || user.email}")
         else
           # Create a proxy for a work that is in the spreadsheet, but wasn't in the initial draft
           work_proxies.create(status: "queued",
                               last_event: DateTime.now,
                               row_number: row_number,
-                              message: "created during update application, which was initiated by #{user.name || user.email}") 
-
+                              message: "created during update application, which was initiated by #{user.name || user.email}")
         end
       end
 
@@ -205,6 +196,7 @@ module BulkOps
 
     def accumulated_errors
       proxy_errors + (@operation_errors || [])
+      # TODO - make sure this captures all operation errors
     end
 
     def report_errors!
@@ -214,15 +206,13 @@ module BulkOps
 
     def create_pull_request message: false
       return false unless (pull_num = git.create_pull_request(message: message))
-      self.pull_id = pull_num
-      self.save
+      update(pull_id: pull_num)
       return pull_num
     end
 
     def finalize_draft(fields: nil, work_ids: nil)
       create_new_spreadsheet(fields: fields, work_ids: work_ids)
-      stage = "pending"
-      save
+      update(stage: "pending")
     end
 
     def create_branch(fields: nil, work_ids: nil, options: nil)
@@ -261,6 +251,7 @@ module BulkOps
     end
 
     def options
+      return @options if @options
       branch = (stage == "running") ? "master" : name
       @options ||= git.load_options(branch: branch)
     end

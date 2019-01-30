@@ -96,9 +96,9 @@ class BulkOps::WorkJob < ActiveJob::Base
 
   def update_status status, message=false
     return false unless @work_proxy
-    @work_proxy.status = status
-    @work_proxy.message = message if message
-    @work_proxy.save
+    atts = {status: status}
+    atts[:message] = message if message
+    @work_proxy.update(atts)
   end
 
 end

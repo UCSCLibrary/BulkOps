@@ -283,10 +283,10 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       next if value == field
       normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
       if ["visibility", "public"].include?(normfield)
-        write_attribute(:visibility, format_visibility(value))
+        update(visibility: format_visibility(value))
       end
       if ["worktype","model","type"].include?(normfield)
-        write_attribute(:work_type,format_worktype(value) )
+        update(work_type: format_worktype(value) )
       end
       if ["referenceidentifier", 
           "referenceid", 
@@ -300,11 +300,9 @@ class BulkOps::WorkProxy < ActiveRecord::Base
           "relationshipidtype",
           "relid",
           "relidtype"].include?(normfield)
-        reference_identifier = format_reference_id(value) 
+        update(reference_identifier: format_reference_id(value))
       end
     end
-    save
-    self.save
     return {}
   end
 
@@ -429,11 +427,9 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   end
 
   def report_error type, message, **args
-    self.status = "error"
-    self.message = message
-    args[:type]=type
     puts "ERROR MESSAGE: #{message}"
-    self.save
+    update(status: "error", message: message)
+    args[:type]=type
     (@proxy_errors ||= []) <<  BulkOps::Error.new(**args)
   end
 end

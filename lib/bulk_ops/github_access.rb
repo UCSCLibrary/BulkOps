@@ -53,8 +53,7 @@ class BulkOps::GithubAccess
                                   accept: "json"}.to_json, 
                            headers: { 'Content-Type' => 'application/json', 
                                       'Accept' => 'application/json'})
-    cred.oauth_token = result.parsed_response["access_token"]
-    cred.save
+    cred.update(oauth_token: result.parsed_response["access_token"])
   end
   
   def self.client_id

@@ -63,20 +63,17 @@ class BulkOps::Relationship < ActiveRecord::Base
       #TODO - implement this - related to ordering of filesets
       
     end
-    write_attribute(:status,"complete")
-    save
+    update(status: "complete")
   end
   
   private 
 
   def fail!
-    write_attribute(:status,"failed")
-    save
+    update(status: "failed")
   end
   
   def wait!
-    write_attribute(:status,"pending")
-    save
-  end
+    update(status: "pending")
+
   
 end
