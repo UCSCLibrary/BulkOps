@@ -11,7 +11,7 @@ module BulkOps
     
     delegate  :can_merge?, :merge_pull_request, to: :git
 
-    BASE_PATH = "/dams_ingest"
+    INGEST_MEDIA_PATH = "/dams_ingest"
     TEMPLATE_DIR = "lib/bulk_ops/templates"
     RELATIONSHIP_COLUMNS = ["parent","child","next"]
     SPECIAL_COLUMNS = ["parent",
@@ -30,8 +30,8 @@ module BulkOps
     IGNORED_COLUMNS = ["ignore","offline_notes"]
     OPTION_REQUIREMENTS = {type: {required: true, 
                                   values:[:ingest,:update]},
-                           file_handling: {required: :update,
-                                           values: []},
+                           file_method: {required: :true,
+                                           values: [:replace_some,:add_remove,:replace_all]},
                            notifications: {required: true}}
 
     def self.unique_name name, user
@@ -90,7 +90,7 @@ module BulkOps
 # This commented line currently fails because it doesn't pull from the master branch by default
 # It's usually already verified, but maybe we should fix this for double-checking 
 # in the future
-#      return unless verify!
+#      return unless verify
 
       apply_ingest! if ingest?
       apply_update! if update?
@@ -220,14 +220,18 @@ module BulkOps
       bulk_ops_dir = Gem::Specification.find_by_name("bulk_ops").gem_dir
 
       #copy template files
-      Dir["#{bulk_ops_dir}/#{TEMPLATE_DIR}/*"].each{|file| git.add_file file}
+      Dir["#{bulk_ops_dir}/#{TEMPLATE_DIR}/*"].each do |file| 
+        git.add_file file 
+      end
 
       #update configuration options 
       unless options.blank?
-        new_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
-        options.each { |option, value| new_options[option] = value }
-        git.update_options new_options
+        puts "UPDATING OPTIONS FROM FILE: #{File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME)}"
+        full_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
+        options.each { |option, value| full_options[option] = value }
+        git.update_options full_options
       end
+
       create_new_spreadsheet(fields: fields, work_ids: work_ids)
     end
 
@@ -252,13 +256,8 @@ module BulkOps
 
     def options
       return @options if @options
-      branch = (stage == "running") ? "master" : name
+      branch = (stage == "running") ? "master" : nil
       @options ||= git.load_options(branch: branch)
-    end
-
-    def set_options options, message = false
-      @options = options
-      git.set_options(options, message)
     end
 
     def draft?
@@ -284,11 +283,6 @@ module BulkOps
 
     def update?
       type == "update"
-    end
-
-    def destroy!
-      git.delete_branch!
-      super
     end
 
     def delete_branch
@@ -318,6 +312,10 @@ module BulkOps
 
     def error_url
       "https://github.com/#{git.repo}/tree/#{git.name}/#{git.name}/errors"
+    end
+
+    def filename_prefix
+      @filename_prefix ||= options['filename_prefix']
     end
 
     private

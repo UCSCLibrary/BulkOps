@@ -74,6 +74,6 @@ class BulkOps::Relationship < ActiveRecord::Base
   
   def wait!
     update(status: "pending")
-
+  end
   
 end

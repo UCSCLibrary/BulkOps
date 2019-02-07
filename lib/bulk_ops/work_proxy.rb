@@ -54,13 +54,12 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
   private 
 
+  def is_file_field? field
+    operation.is_file_field? field
+  end
 
   def record_exists? id
-    begin
-      return true if SolrDocument.find(id)
-    rescue Blacklight::Exceptions::RecordNotFound
-      return false
-    end
+    operation.record_exists? id
   end
 
   def localAuthUrl(property, value) 
@@ -96,17 +95,8 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     ScoobySnacks::METADATA_SCHEMA["work_types"][work_type.downcase]
   end
 
-  def find_field_name field
-    field.gsub!(/[_\s-]?[lL]abel\z/,"") if field.downcase.ends_with? "label"
-    field.gsub!(/\A[rR]emove[_\s-]?/,"") if field.downcase.starts_with? "remove"
-    field.gsub!(/\A[rR]emove[_\s-]?/,"") if field.downcase.starts_with? "delete"
-
-    field_name = nil
-    field_name_options = [field, 
-                          downcase_first_letter(field.parameterize.underscore.camelize), 
-                          field.parameterize.underscore]
-    field_name_options.each {|fld| field_name = fld if schema["properties"].keys.include?(fld)}
-    return field_name || false
+  def find_field_name(field)
+    operation.find_field_name(field)
   end
 
   def downcase_first_letter(str)
@@ -213,16 +203,15 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   def interpret_scalar_fields raw_data
     metadata = {}
     raw_data.each do |field, values| 
-      next if value.nil? or field.nil? or field == value
+      next if values.nil? or field.nil? or field == values
+      # get the field name, if this column is a metadata field
+      next unless field_name = find_field_name(field.to_s)
+      # Ignore controlled fields
+      next if schema["controlled"].include? field_name
       values.split(SEPARATOR).each do |value|
-        field = field.to_s
-        #If our CSV interpreter is feeding us the headers as a line, ignore it.
-        next if field == value
-        # get the field name, if this column is a metadata field
-        next unless field_name = find_field_name(field)
-        # Ignore controlled fields
-        next if schema["controlled"].include? field_name
-        (metadata[field_name] ||= []) << value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
+        next if value.blank?
+        value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
+        (metadata[field_name] ||= []) << value
       end
     end
     return metadata
@@ -235,42 +224,34 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     # by the BulkOps::Operation.
     #
     # TODO: THIS DOES NOT YET MANAGE THE ORDER OF INGESTED FILESETS
+    
     metadata = {}
     raw_data.each do |field, value|
       field = field.to_s
       #If our CSV interpreter is feeding us the headers as a line, ignore it.
       next if field == value
+
+      # Check if this is a file field, and whether we are removing or adding a file
+      next unless (action = is_file_field?(field))
+      
       # Move on if this field is the name of another property (e.g. masterFilename)
       next if find_field_name(field)
-      #hack for now
-      next if field.downcase.include("master")
-      # Ignore fields that aren't file fields
-      field_parts = field.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
-      next unless field_parts.any?{ |field_type| FILE_FIELDS.include?(field_type) }
+      
       # Check if we are removing a file
-      if (field_parts.any? {|action| ["remove","delete"].include?(action) })
-        if record_exists?(value)
-          # the value corresponds to an existing work id
-          file_id = value 
-        else
-          # there is no work with this id, so treat it as a label
-          # and see if any file set has an overlapping label
-          work.file_sets.each{|fs| file_id = fs.id if (fs.label.include?(value) or value.include?(fs.label)) }
-        end
-        #Delete the file in the background, if we found one
-        BulkOps::DeleteFileSetJob.perform_later(file_id, operation.user.email ) if file_id
+      if action == "remove"
+        get_removed_filesets(value).each { |fileset_id| delete_file_set(file_set_id) } 
       else
         # Add a file
-        begin
-          puts "FULL FILE NAME: #{value}, pATH: #{File.join(BulkOps::Operation::BASE_PATH}"
-          file = File.open(File.join(BulkOps::Operation::BASE_PATH,value))
-          uploaded_file = Hyrax::UploadedFile.create(file: file, user: operation.user)
-          (metadata[:uploaded_files] ||= []) << uploaded_file.id unless uploaded_file.id.nil?
-        rescue Exception => e  
-          report_error(:upload_error,
-                       message: "Error opening file: #{File.join(BulkOps::Operation::BASE_PATH,value)} -- #{e}",
-                       file: File.join(BulkOps::Operation::BASE_PATH,value),
-                       row_number: row_number)
+        operation.get_file_paths(value).each do |filepath|
+          begin
+            uploaded_file = Hyrax::UploadedFile.create(file:  File.open(filepath), user: operation.user)
+            (metadata[:uploaded_files] ||= []) << uploaded_file.id unless uploaded_file.id.nil?
+          rescue Exception => e  
+            report_error(:upload_error,
+                         message: "Error opening file: #{ File.join(BulkOps::Operation::INGEST_MEDIA_PATH,filename) } -- #{e}",
+                         file: File.join(BulkOps::Operation::INGEST_MEDIA_PATH,filename),
+                         row_number: row_number)
+          end
         end
       end
     end
@@ -432,4 +413,28 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     args[:type]=type
     (@proxy_errors ||= []) <<  BulkOps::Error.new(**args)
   end
+
+  def filename_prefix
+    @filename_prefix ||= operation.filename_prefix
+  end
+
+  def record_exists?
+    operation.record_exists?
+  end
+
+  def get_removed_filesets(filestring)
+    file_ids = filestring.split(BulkOps::WorkProxy::SEPARATOR)
+    file_ids.map do |file_id| 
+      # If the filename is the id of an existing record, keep that
+      next(file_id) if (record_exists?(file_id))
+      # If this is the label (i.e.filename) of an existing fileset, use that fileset id
+      next(filename) if (record_exists?(filename))
+      File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix, filename)
+    end
+  end
+
+  def delete_file_set fileset_id
+    BulkOps::DeleteFileSetJob.perform_later(fileset_id, operation.user.email )
+  end
+  
 end

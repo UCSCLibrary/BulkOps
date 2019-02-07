@@ -2,36 +2,80 @@ module BulkOps
   module Verification
     extend ActiveSupport::Concern
     
-    def verify!
+    def verify
       @verification_errors ||= []
       verify_column_headers
       verify_remote_urls
       verify_internal_references
       verify_files
+      verify_works_to_update if operation_type.to_s == "update"
       unless @verification_errors.blank?
         error_file_name = BulkOps::Error.write_errors!(@verification_errors, git)
         #notify everybody
-        notify!(subject: "Errors verifying bulk #{operation_type} in Hycruz", message: "Hyrax ran a verification step to make sure that the spreadsheet for this bulk #{operation_type} is formatted correctly and won't create any errors. We found some problems. You can see a summary of the issues at this url: https://github.com/#{git.repo}/blob/#{git.name}/#{git.name}/errors/#{error_file_name}. Please fix these problems and run this verification again. The bulk #{operation_type} will not be allowed to move forward until all verification issues are resolved.")
+        notify(subject: "Errors verifying bulk #{operation_type} in Hycruz", message: "Hyrax ran a verification step to make sure that the spreadsheet for this bulk #{operation_type} is formatted correctly and won't create any errors. We found some problems. You can see a summary of the issues at this url: https://github.com/#{git.repo}/blob/#{git.name}/#{git.name}/errors/#{error_file_name}. Please fix these problems and run this verification again. The bulk #{operation_type} will not be allowed to move forward until all verification issues are resolved.")
 
         return false
       end
       return true
     end
 
+    def notify(subject: , message:)
+      options["notifications"].each do |email|
+        ActionMailer::Base.mail(from: "admin@digitalcollections.library.ucsc.edu",
+                                to: email,
+                                subject: subject,
+                                body: message).deliver
+      end
+    end
+
+    def is_file_field?(fieldname)
+      field_parts = fieldname.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
+      return false unless field_parts.any?{ |field_type| BulkOps::WorkProxy::FILE_FIELDS.include?(field_type) }
+      return "remove" if field_parts.any?{ |field_type| ['remove','delete'].include?(field_type) }
+      return "add"
+    end
+
+    def find_field_name(fieldname)
+      name = fieldname.dup
+      name.gsub!(/[_\s-]?[aA]ttributes$/,'')
+      name.gsub!(/[_\s-]?[lL]abel$/,'')
+      name.gsub!(/^[rR]emove[_\s-]?/,'')
+      name.gsub!(/^[dD]elete[_\s-]?/,'')
+      possible_fields = Work.attribute_names + schema['properties'].keys
+      matching_fields = possible_fields.select{|pfield| pfield.gsub(/[_\s-]/,'').parameterize == name.gsub(/[_\s-]/,'').parameterize }
+      return false if matching_fields.blank?
+      #      raise Exception "Ambiguous metadata fields!" if matching_fields.uniq.count > 1
+      return matching_fields.first
+    end
+
+    def get_file_paths(filestring)
+      filenames = filestring.split(BulkOps::WorkProxy::SEPARATOR)
+      filenames.map { |filename| File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix || "", filename) }
+    end
+
+    def record_exists? id
+      begin
+        return true if SolrDocument.find(id)
+      rescue Blacklight::Exceptions::RecordNotFound
+        return false
+      end
+    end
+
     private
 
     def verify_files 
+      file_errors = []
       get_spreadsheet.each_with_index do |row, row_num|
-        file_string = ""
-        next unless (file_string = row["file"]) || (file_string = row["filename"])
-        next if row_num < 1 && ["filename","file"].include?(file_string)
-        filenames = file_string.split(';')
-        filenames.each do |filename|
-          next if File.file? File.join(BulkOps::Operation::BASE_PATH,filename)
-          @verification_errors << BulkOps::Error.new({type: :cannot_find_file, file: filename})
+        file_fields = row.select { |field, value| is_file_field?(field) }
+        file_fields.each do |column_name, filestring|
+          next if column_name == filestring
+          get_file_paths(filestring).each do |filepath|
+            errors << BulkOps::Error.new({type: :cannot_find_file, file: filename}) unless  File.file? filepath
+          end
         end
       end
-      return errors
+      @verification_errors << file_errors
+      return file_errors
     end
 
     def verify_configuration
@@ -100,43 +144,76 @@ module BulkOps
       return errors
     end
 
-    def verify_internal_references
-      get_spreadsheet.each do |row,row_num|
-        ref_id = row['reference_identifier'] || reference_identifier
-        BulkOps::Operation::RELATIONSHIP_COLUMNS.each do |relationship|
-          next unless (obj_id = row[relationship])
-          if (split = obj_id.split(':')).count == 2
-            ref_id = split[0].downcase
-            obj_id = split[1]
-          end
-          
-          if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
-            # This is a row number reference. It should be an integer in the range of possible row numbers.
-            unless obj_id.is_a? Integer && obj_id > 0 && obj_id <= metadata.count
-              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
-            end  
-          elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
-            # This is a hydra id reference. It should correspond to an object already in the repo
-            unless SolrDocument.find(obj_id) || ActiveFedora::Base.find(obj_id)
-              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num+ROW_OFFSET})
+    def get_id_from_row row
+      ref_id = get_ref_id(row).to_sym
+      return :id if ref_id == :id
+      normrow = row.mapgsub(//,'').parameterize
+      if row.key?(ref_id)
+        
+        # TODO if ref_id is another column
+        # TODO implement solr search 
+      end
+    end
+
+      def verify_works_to_update
+        return [] unless operation_type == "update"
+        get_spreadsheet.each_with_index do |row, row_num|
+          id = get_ref_id(row)
+          file_fields = row.select { |field, value| is_file_field?(field) }
+          file_fields.each do |column_name, filestring|
+            next if column_name == filestring
+            get_file_paths(filestring).each do |filepath|
+              errors << BulkOps::Error.new({type: :cannot_find_file, file: filename}) unless  File.file? filepath
             end
-          else
-
-            # This must be based on some other presumably unique field in hyrax, or a dummy field in the spreadsheet. We haven't added this functionality yet. Ignore for now.
-
           end
-        end      
+        end
+        @verification_errors << file_errors
+        return file_errors
       end
-    end
 
-    def notify!(subject: , message:)
-      options["notifications"].each do |email|
-        ActionMailer::Base.mail(from: "admin@digitalcollections.library.ucsc.edu",
-                                to: email,
-                                subject: subject,
-                                body: message).deliver
+      def get_ref_id row
+        row.each do |field,value| 
+          next unless BulkOps::WorkProxy::REFERENCE_IDENTIFIER_FIELDS.any?{ |ref_field| normalize_field(ref_field) ==  normalize_field(field) }
+          return value 
+        end
+        # No reference identifier specified in the row. Use the default for the operation.
+        return reference_identifier || :id
       end
-    end
 
+      def normalize_field field
+        field.downcase.parameterize.gsub(/[_\s-]/,'')
+      end
+
+      def verify_internal_references
+        # TODO 
+        # This is sketchy. Redo it.
+        get_spreadsheet.each do |row,row_num|
+          ref_id = get_ref_id(row)
+          BulkOps::Operation::RELATIONSHIP_COLUMNS.each do |relationship|
+            next unless (obj_id = row[relationship])
+            if (split = obj_id.split(':')).count == 2
+              ref_id = split[0].downcase
+              obj_id = split[1]
+            end
+            
+            if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
+              # This is a row number reference. It should be an integer in the range of possible row numbers.
+              unless obj_id.is_a? Integer && obj_id > 0 && obj_id <= metadata.count
+                @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
+              end  
+            elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
+              # This is a hydra id reference. It should correspond to an object already in the repo
+              unless SolrDocument.find(obj_id) || ActiveFedora::Base.find(obj_id)
+                @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num+ROW_OFFSET})
+              end
+            else
+
+              # This must be based on some other presumably unique field in hyrax, or a dummy field in the spreadsheet. We haven't added this functionality yet. Ignore for now.
+
+            end
+          end      
+        end
+      end
+
+    end
   end
-end
