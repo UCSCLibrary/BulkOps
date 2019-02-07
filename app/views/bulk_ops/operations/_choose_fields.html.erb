@@ -1,11 +1,22 @@
-<div id="fields_options">
-    <label>Fields for Spreadsheet</label> <p>Which metadata fields would you like to include on the template spreadsheet we prepare for this bulk operation? Including all the fields you plan to use here will make it easier to format your spreadsheet flawlessly</p>
+<div id="fields-options" class="bulk-ops-options">
 
-    <select id="fields" name="fields[]" multiple size=8>
-        <% @all_fields.each do |field| %>
-            <% next if field.nil? %>
-            <option value="<%=field%>" <%= "selected" if @default_fields.include?(field) %> > <%=field%></option>
-        <% end %>
-    </select>
+    <input id="use-default-fields" type="checkbox" checked="checked" />
+
+    <label for="use-default-fields" data-toggle="tooltip" title="Uncheck this box to manually choose which fields will be included in the template spreadsheet. This is useful if you aren't sure how to format the field names you need.">Use Default Fields for Template</label>
+
+
+    <div id="choose-fields">
+        <label data-toggle="tooltip" title="Which metadata fields would you like to include on the template spreadsheet for this bulk operation?">Fields for Initial Spreadsheet</label>
+        <ul id="bulk-ops-field-options">
+            <% @all_fields.each do |field| %>
+                <li>
+                    <% next if field.nil? %>
+                    <input type="checkbox" name="fields[]" value="<%= field %>" <%= 'checked="checked"' if @default_fields.include?(field) %> />
+                    <%=field%>
+                </li>
+            <% end %>
+        </ul>
+    </div>
+
 </div>
 

@@ -1,6 +1,7 @@
 <div id="github-auth">
+    <%= image_tag 'bulk_ops/github_logo.png' %>
     <% if @github_username %>
-        You are logged in to Github as <strong><%= @github_username %></strong>.
+        <p>You are logged in as <strong><%= @github_username %></strong>.</p>
         <%= form_tag("/bulk_ops/github_logout/#{current_user.id}", method: :post) do %>
             <input type="submit" name="logout" value="Logout" />
         <% end %>

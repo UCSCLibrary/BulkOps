@@ -57,3 +57,19 @@ div#update-draft-works {
 }
 
 form#finalize-draft {clear: left;}
+
+div#github-auth {
+    width: 160px;
+    float: right;
+    text-align: center;
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 5px;
+
+    img {
+        max-width: 80%;
+        display: block;
+        margin: 5px auto 5px auto;
+    }
+    p { margin: 5px}
+}

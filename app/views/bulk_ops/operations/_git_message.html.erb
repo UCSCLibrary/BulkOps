@@ -1,5 +1,7 @@
-<button onclick="$(this).next().show();$(this).hide()" id="show-git-message" type="button">Add Comment</button>
-<div id="git-message-div" style="display:none">
-    <label>Comment</label> <p>Type a short comment describing the action you are taking. This comment will be recorded in the history of this operation, and will be visible to other administrators.</p>
-    <input type="text" name="git_message" size="64"/>
+<div class="github-message">
+    <button onclick="$(this).next().show();$(this).hide()" id="show-git-message" type="button">Add Comment (logged on github)</button>
+    <div id="git-message-div" style="display:none">
+        <label>Comment</label> <p>Type a short comment describing the action you are taking. This comment will be recorded in the history of this operation, and will be visible to other administrators.</p>
+        <input type="text" name="git_message" size="64"/>
+    </div>
 </div>

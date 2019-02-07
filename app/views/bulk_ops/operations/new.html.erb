@@ -1,38 +1,34 @@
+<%= javascript_include_tag "bulk_ops" %>
+<%= stylesheet_link_tag "bulk_ops" %>
 <% provide :page_title, "New Bulk Operations" %>
-    <h1><span class="fa fa-edit" aria-hidden="true"></span>Create a New Bulk Ingest or Update</h1>
+<%= render "bulk_ops_header", title: 'Create New Bulk Ingest or Update' %>
 
+<%= form_tag "/bulk_ops" do %>
 
-<form id="new-bulk-operation" name="new_bulk_operation">
-
-    <div id="operation-name">
-        <label>Name:</label>
-        <p>Choose a short descriptive name for this bulk operation</p>
-        <input type="text" name="name" />
+    <div id="operation-name" class="bulk-ops-options">
+        <label data-toggle="tooltip" title="Choose a short descriptive name for this bulk operation" for="bulk-ops-name">New Operation Name:</label>
+        <input type="text" name="name" id="bulk-ops-name" />
     </div>
 
-    <%= render "choose_notifications" %>
-
-
-    <div>
-        <label>Ingest or Update?</label>
-        <p> Would you like to set up a bulk ingest of new works, or a bulk update of existing works?</p>
-        <select name="type"  onchange="$('.options-panel').hide(); $('#'+this.value+'-options').show()" >
+    <div class="bulk-ops-options">
+        <label for="op-type" data-toggle="tooltip" title="Would you like to set up a bulk ingest of new works, or a bulk update of existing works?">Ingest or Update?</label>
+        <select name="type"  id="op-type" onchange="$('.options-panel').hide(); $('#'+this.value+'-options').show()" >
             <option disabled selected value> -- Choose Operation Type -- </option>
             <option value="ingest">Ingest </option>
             <option value="update">Update </option>
         </select>
     </div>
 
-
     <%= render "ingest_options" %>
     <%= render "update_options" %>
 
-
     <%= render "choose_fields" %>
 
+    <%= render "choose_notifications" %>
 
     <%= render "git_message" %>
     
     <input type="submit" name="create_operation" id="create-operation" value="Create Bulk Operation" />
 
-</form>
+<% end %>
+

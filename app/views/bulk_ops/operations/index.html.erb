@@ -1,11 +1,50 @@
 <% provide :page_title, "List Bulk Operations" %>
 <%= javascript_include_tag "bulk_ops" %>
-<h1>Bulk Operations </h1>
+<%= stylesheet_link_tag "bulk_ops" %>
+<%= render "bulk_ops_header", title: "Manage Bulk Ingests & Updates" %>
 <%= render "bulk_ops/github_auth_widget" %>
-<ul id="operations-index">
-    <% @active_operations.each do |operation| %>
-        <li>
-            <%= link_to(operation.name,operation)%>
-        </li>
-    <% end %>
-</ul>
+
+<%= form_tag("destroy_multiple") do %>
+    <div id="bulk-ops-index-header">
+        <input type="checkbox" id="bulk-ops-select-all" />
+        <button id="bulk-ops-delete-group">Delete Selected</button>
+        <a href="bulk_ops/new" >
+            <button type="button" id="bulk-ops-new"> New Bulk Operation</button>
+        </a>
+    </div>
+
+
+
+    <ul id="operations-index">
+        <% @active_operations.each do |operation| %>
+            <li>
+                <input type="checkbox" name="operation_ids[]" class="bulk-ops-index-checkbox" value="<%= operation.id %>" />
+                <div class="op-name">
+                    <%= link_to(operation.name,operation)%>
+                </div>
+
+                <div class="op-summary">
+                    <div class="op-type">
+                        <label> Type: </label>
+                        <%=operation.type%>
+                    </div>
+                    <div class="op-stage">
+                        <label> Stage: </label>
+                        <%=operation.stage%>
+                    </div>
+                </div>
+                
+                <div class="op-status">
+                    <label> Status: </label>
+                    <%=operation.status%>
+                        </label>
+                </div>
+                <div class="op-message">
+                    <label> Message: </label>
+                    <%=operation.message%>
+                </div>
+                
+            </li>
+        <% end %>
+    </ul>
+<% end %>

@@ -1,7 +1,41 @@
 
-<div id="ingest-options" class="collapse options-panel">
-<!--    <h3>Options for Ingest</h3> -->
+<div id="ingest-options" class="collapse options-panel bulk-ops-options">
+
+    <div>
+        <label for="visibility" data-toggle="tooltip" title="How would you like to set the default visibility of the imported works? If you're unsure, keep the works private for now and publish them later." >Default Visibility:</label>
+        <select id="visibility" name="visibility">
+            <%= options_for_select @visibility_options, "restricted" %> 
+        </select>
+    </div>
+
+    <div>
+        <label for="work-type" data-toggle="tooltip" title="Which work type would you like to create by default? This can be changed later, and/or overridden in the ingest spreadsheet on a line-by-line basis.">Default Work Type:</label>
+        <select name="work_type" id="work-type">
+            <%= options_for_select @work_type_options %> 
+        </select>
+    </div>
+
+    <div>
+        <input type="checkbox" id="complex-objects" onclick="jQuery('div#reference-options').toggle()" />
+        <label for="complex-objects" data-toggle="tooltip" title="Check this box the works in your spreadsheet have structural metadata relating them to one another (e.g. parent-child relationships)">This field contains complex objects</label>
+    </div>
+
+    <div id="reference-options" style="display:none">
+        <div>
+            <input type="checkbox" name="include_reference_column" checked="checked" onclick="jQuery('div.reference-column-toggle').toggle()" />
+            <label data-toggle="tooltip" title="Check this box to include a dedicated column on the spreadsheet for a unique identifier of each row. These identifiers are meant to be used for rows with parent-child relationships to refer to one another. This reference column will not be ingested as metadata.">Include Dedicated Reference Column</label>
+        </div>
 
 
+        <div class="reference-column-toggle" style="display:none">
+            <label data-toggle="tooltip" title="If we aren't including a dedicated column for rows to reference one another, we need to use one of the metadat columns. Please enter the name of the column you want to use as a unique identifier of each row for reference purposes within the spreadsheet.">Column or Field to Identify Referenced Works:</label>
+            <input type="text" name="reference_identifier" />
+        </div>
+
+        <div class="reference-column-toggle">
+            <label data-toggle="tooltip" title="Choose a name for the dedicated reference column. This can be anything that isn't used for another purpose in the spreadsheet.">Reference Column Name:</label>        
+            <input type="text" id="reference-column-name" name="reference_column_name" value="INGEST REFERENCE" />
+        </div>
+    </div>
 
 </div>

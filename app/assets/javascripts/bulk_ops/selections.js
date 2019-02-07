@@ -19,12 +19,6 @@ jQuery(document).ready(function() {
     }
   });
 
-  jQuery('input#use-default-fields').click(function(){
-    console.log("test!")
-    if( jQuery(this).is(':checked')) {
-      jQuery('div#choose-fields').hide()
-    }else{
-      jQuery('div#choose-fields').show()
-    }
-  });
-});
+  
+
+}

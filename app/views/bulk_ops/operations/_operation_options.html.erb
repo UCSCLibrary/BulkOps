@@ -1,0 +1,29 @@
+<div id="operation-options" class="collapse options-panel  bulk-ops-options">
+
+    <div>
+        <div class="tooltip">
+            <label>Filename Prefix</label>
+            <p class="tooltip-text">This string will be added before each filename included in the spreadsheet. Use this for a shared base directory.</p>
+        </div>
+        <input type="text" name="file_prefix" />
+    </div>
+
+    <div>
+        <div class="tooltip">
+            <label>Columns to Ignore:</label>
+            <p class="tooltip-text">Any column whose header is on this list will be ignored when ingesting this spreadsheet.</p>
+        </div>
+        <ul id="ignored-columns">
+            <li id="template-li" style="display:none">
+                <input type="text" name="ignore[]" />
+                <button type="button" 
+                        class="remove-ignore" 
+                        onclick="jQuery(this).parent('li').remove()">X</button>
+            </li>
+        </ul>
+        <button type="button" id="add-ignore-column"
+                onclick="jQuery('li#template-li').clone().show().appendTo('ul#ignored-columns');">Add another ignored column</button>
+    </div>
+
+
+</div>
