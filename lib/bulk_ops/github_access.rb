@@ -123,7 +123,7 @@ class BulkOps::GithubAccess
   def add_file file_path, file_name = nil, message: nil
     file_name ||= File.basename(file_path)
     #    unless (file_name.downcase == "readme.md") || (file_name.downcase.include? "#{name}/")
-    file_name = File.join name, file_name unless file_name.downcase.include? "#{name}/"
+    file_name = File.join(name, file_name) unless file_name.downcase.include? "#{name.downcase}/"
     message ||= "adding file #{file_name} to github branch #{name}"
     client.create_contents(repo, file_name, message, file: file_path, branch: name)
   end
