@@ -3,12 +3,12 @@ module BulkOps
 
     skip_before_action :verify_authenticity_token, only: [:apply]
     before_action :define_presenter
-    before_action :ensure_admin!
     before_action :github_auth, only: [:index]
     before_action :initialize_options, only: [:new,:show,:edit, :update]
     before_action :initialize_operation, only: [:edit, :destroy, :show, :request_apply, :approve, :csv, :errors, :log, :update, :request, :duplicate]
     layout 'dashboard'
     attr_accessor :git
+    load_and_authorize_resource
     helper :hyrax
 
     def index
@@ -26,6 +26,12 @@ module BulkOps
       # delete all the works
       operation.delete_all
       redirect_to action: "show", id: operation.id, notice: "All works created by this ingest have been deleted from the system. Feel free to re-apply the ingest."
+    end
+
+    def destroy_multiple
+      params['operation_ids'].each{|id| BulkOps::Operation.find(id).destroy! }
+      flash[:notice] = "Bulk operations deleted successfully"
+      redirect_to action: "index"
     end
 
     def duplicate 
@@ -64,14 +70,16 @@ module BulkOps
       redirect_to action: "show", id: new_operation.id, notice: "Successfully created a new bulk update from the works involved in the previous operation."
     end
 
-
-    def new
-      @default_fields = BulkOps::Operation.default_metadata_fields + ['id','collection','filename']
-      @all_fields = (BulkOps::Operation.default_metadata_fields + BulkOps::Operation::SPECIAL_COLUMNS)
-
-      if params["create_operation"]
+    def create
         params.require([:name,:type,:notified_users])
-        params.permit([:fields,:file_method,:git_message])
+        params.permit([:fields,
+                       :file_method,
+                       :reference_identifier,
+                       :include_reference_column,
+                       :reference_column_name,
+                       :visibility,:work_type,
+                       :file_prefix,
+                       :ignored_columns,:git_message])
         # Create a unique operation name if the chosen name is taken
         op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
         
@@ -100,7 +108,12 @@ module BulkOps
 
         #redirect to operation show page
         redirect_to action: "show", id: operation.id, notice: "Bulk #{params['type']} created successfully"
-      end
+    end
+
+    def new
+      @default_fields = BulkOps::Operation.default_metadata_fields + ['id','collection','filename']
+      @all_fields = (BulkOps::Operation.default_metadata_fields + BulkOps::Operation::SPECIAL_COLUMNS)
+
     end
 
     def show
@@ -195,7 +208,6 @@ module BulkOps
                                            admin_set_id: params['admin_set_id'],
                                            workflow_state: params['workflow_state'],
                                            keyword_query: params['q']).rows(rows)
-      puts "builder query: #{builder.query}"
       results = repository.search(builder).documents
       response.headers['Content-Type'] = 'application/json'
       render json: {num_results: results.count, results: results[start,rows]}
@@ -208,19 +220,9 @@ module BulkOps
     end
 
     def request_apply
-      if @operation.verify!
-        @operation.set_stage "authorize"
-        if @operation.create_pull_request
-          flash[:notice] = "Your bulk #{@operation.type} has passed verification, and is waiting for authorization before being applied."
+      BulkOps::VerificationJob.new(@operation).perform_later
+          flash[:notice] = "We are now running the data from your spreadsheet through an automatic verification process to anticipate any problems before we begin the ingest. This may take a few minutes. You should recieve an email when the process completes."
           redirect_to action: "show"
-        else
-          flash[:error] = "This bulk #{@operation.type} is already pending approval"
-          redirect_to action: "show"
-        end
-      else
-        flash[:error] = "Your bulk #{@operation.type} has failed verification. Errors have been emailed to notified parties. You can view the errors at this url: <a href=\"#{@operation.error_url}\">#{@operation.error_url}</a>"
-        redirect_to action: "show"
-      end
     end
     
     def approve
@@ -239,7 +241,6 @@ module BulkOps
     
     def apply
       parameters = JSON.parse request.raw_post
-      puts "action: #{params['action']}"
       unless parameters['action'] == 'closed' 
         render plain: "IGNORING THIS EVENT" 
         return
@@ -276,7 +277,19 @@ module BulkOps
     private
 
     def updated_options
-      available_options = ['notifications','type','file_method','creator_email']
+      #todo: this method is poorly named
+      available_options = [:notifications,
+                           :type,
+                           :work_type,
+                           :file_method,
+                           :visibility,
+                           :filename_prefix,
+                           :ignore,
+                           :reference_identifier,
+                           :include_reference_column,
+                           :reference_column_name,
+                           :creator_email]
+      #TODO Verify work_types, visibilities,filename_prefixes,etc
       params.select{|key, value| available_options.include?(key)}
     end
 
@@ -285,18 +298,30 @@ module BulkOps
                               ["Remove all files attached to these works and ingest a new set of files",'replace-all'],
                               ["Re-ingest some files with replacements of the same filename. Leave other files alone.","reingest-some"],
                               ["Remove one list of files and ingest another list of files. Leave other files alone.","remove-and-add"]]
+      @visibility_options = [["Public",'open'],
+                             ["Private",'restricted'],
+                             ["UCSC","ucsc"]]
+      #TODO pull from registered work types
+      @work_type_options = [["Work",'Work'],
+                            ["Course","Course"],
+                            ["Lecture",'Lecture']]
+
       default_notifications = [current_user,User.first].uniq
       
       @notified_users = params['notified_user'].blank? ? default_notifications : params['notified_user'].map{ |user_id| User.find(user_id.to_i)}
     end
 
     def initialize_operation
+
+# This part should now be done in load_and_authorize_resource
+#      if (id = params["operation_id"]) || (id = params["id"])
+#        @operation = BulkOps::Operation.find(id)
+#      elsif params["operation_name"]
+#        @operation = BulkOps::Operation.find_by(name: params["operation_name"])
+#      end
+
+
       #define branch options if a branch is not specified
-      if (id = params["operation_id"]) || (id = params["id"])
-        @operation = BulkOps::Operation.find(id)
-      elsif params["operation_name"]
-        @operation = BulkOps::Operation.find_by(name: params["operation_name"])
-      end
       if @operation.nil?
         @branch_names = BulkOps::GithubAccess.list_branch_names current_user
         @branch_options = @branch_names.map{|branch| [branch,branch]}
@@ -315,7 +340,7 @@ module BulkOps
     end
     
     #TODO
-    def ensure_admin!
+    def esure_admin!
       # Do appropriate user authorization for this. Based on workflow roles / privileges? Or just user roles?
     end
 
