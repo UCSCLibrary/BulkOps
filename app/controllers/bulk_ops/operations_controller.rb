@@ -63,6 +63,7 @@ module BulkOps
       name_base = (params['name'] || @operation.name).parameterize
       name = BulkOps::Operation.unique_name(name_base, current_user)
       new_operation = BulkOps::Operation.create(name: name, 
+                                                rows: 9999,
                                                 status: "new", 
                                                 stage: "new", 
                                                 operation_type: 'update', 
@@ -285,6 +286,10 @@ module BulkOps
       render :text => @operation.get_spreadsheet(return_headers: true)
     end
 
+    def blacklight_config
+      CatalogController.blacklight_config
+    end
+
     private
 
     def updated_options
@@ -370,6 +375,8 @@ module BulkOps
     def repository
       @repository ||= Blacklight::Solr::Repository.new(CatalogController.blacklight_config)
     end
+
+    
 
   end
 end
