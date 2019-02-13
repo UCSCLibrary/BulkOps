@@ -2,14 +2,24 @@ module BulkOps
   class OperationsController < ApplicationController
 
     skip_before_action :verify_authenticity_token, only: [:apply]
+
     before_action :define_presenter
-    before_action :github_auth, only: [:index]
+    before_action :github_auth
+    load_and_authorize_resource
     before_action :initialize_options, only: [:new,:show,:edit, :update]
     before_action :initialize_operation, only: [:edit, :destroy, :show, :request_apply, :approve, :csv, :errors, :log, :update, :request, :duplicate]
+
     layout 'dashboard'
     attr_accessor :git
-    load_and_authorize_resource
+
     helper :hyrax
+    helper_method :create_work_presenter
+
+    # Hacky fix for bug displaying masthead. 
+    # This will change anyway with next Hyrax upgrade.
+    def create_work_presenter
+      return []
+    end
 
     def index
       branches = BulkOps::GithubAccess.list_branch_names current_user
@@ -47,7 +57,7 @@ module BulkOps
         proxies = @operation.work_proxies
       end
 
-      message = params['git_message'] || "This update was created from a previous update which had been run."
+      message = params['git_message'] || "This update was created from a group of works affected by a previous operation."
 
 #      work_ids = proxies.map{|prx| prx.id}
       name_base = (params['name'] || @operation.name).parameterize
@@ -125,7 +135,7 @@ module BulkOps
         @num_complete = @operation.work_proxies.where(status: 'complete').count
         @num_other = @operation.work_proxies.where.not(status: ['queued','running','failed','complete']).count
       end
-      @draft_works = @operation.work_proxies.map{|prx| SolrDocument.find(prx.work_id)} if @operation.stage=="draft"
+      @draft_works = @operation.work_proxies.select{|proxy| solr_doc_exists? proxy.work_id}.map{|prx| SolrDocument.find(prx.work_id)} if @operation.stage=="draft"
     end
 
     def update
@@ -161,6 +171,7 @@ module BulkOps
       if params['added_work_ids'] && @operation.draft?
         added = false
         params['added_work_ids'].each do |work_id|
+          next if work_id.blank?
           unless BulkOps::WorkProxy.find_by(operation_id: @operation.id, work_id: work_id)
             BulkOps::WorkProxy.create(operation_id: @operation.id, 
                                       work_id: work_id,
@@ -311,15 +322,16 @@ module BulkOps
       @notified_users = params['notified_user'].blank? ? default_notifications : params['notified_user'].map{ |user_id| User.find(user_id.to_i)}
     end
 
+    def solr_doc_exists? id
+      begin
+        SolrDocument.find(id)
+      rescue Blacklight::Exceptions::RecordNotFound
+        return false
+      end
+      return true
+    end
+
     def initialize_operation
-
-# This part should now be done in load_and_authorize_resource
-#      if (id = params["operation_id"]) || (id = params["id"])
-#        @operation = BulkOps::Operation.find(id)
-#      elsif params["operation_name"]
-#        @operation = BulkOps::Operation.find_by(name: params["operation_name"])
-#      end
-
 
       #define branch options if a branch is not specified
       if @operation.nil?
@@ -327,7 +339,7 @@ module BulkOps
         @branch_options = @branch_names.map{|branch| [branch,branch]}
         @branch_options = [["No Bulk Updates Defined",0]] if @branch_options.blank?
       elsif @operation.stage == "draft" 
-        @works = @operation.work_proxies.map{|work_proxy| SolrDocument.find(work_proxy.work_id)}
+        @works = @operation.work_proxies.select{|proxy_id| solr_doc_exists? proxy_id}.map{|work_proxy| SolrDocument.find(work_proxy.work_id)}
         @collections = Collection.all.map{|col| [col.title.first,col.id]}
         @admin_sets = AdminSet.all.map{|aset| [aset.title.first, aset.id]}
         workflow = Sipity::Workflow.where(name:"ucsc_generic_ingest").last

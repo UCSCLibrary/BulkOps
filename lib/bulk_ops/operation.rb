@@ -226,7 +226,6 @@ module BulkOps
 
       #update configuration options 
       unless options.blank?
-        puts "UPDATING OPTIONS FROM FILE: #{File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME)}"
         full_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
         options.each { |option, value| full_options[option] = value }
         git.update_options full_options
@@ -236,7 +235,14 @@ module BulkOps
     end
 
     def self.works_to_csv work_ids, fields
-      work_ids.reduce(fields.join(',')){|csv, work_id| csv + "\r\n" + self.work_to_csv(work_id,fields)}  end
+      work_ids.reduce(fields.join(',')) do |csv, work_id| 
+        if work_csv = work_to_csv(work_id,fields)
+          csv + "\r\n" + work_csv
+        else
+          csv
+        end
+      end
+    end
 
     def get_spreadsheet return_headers: false
       git.load_metadata return_headers: return_headers
@@ -325,7 +331,12 @@ module BulkOps
     end
 
     def self.work_to_csv work_id, fields
-      work = Work.find(work_id)
+      return false if work_id.empty?
+      begin
+        work = Work.find(work_id)
+      rescue ActiveFedora::ObjectNotFoundError
+        return false
+      end
       line = ''
       fields.map do |field_name| 
         label = false
