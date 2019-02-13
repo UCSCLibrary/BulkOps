@@ -63,7 +63,6 @@ module BulkOps
       name_base = (params['name'] || @operation.name).parameterize
       name = BulkOps::Operation.unique_name(name_base, current_user)
       new_operation = BulkOps::Operation.create(name: name, 
-                                                rows: 9999,
                                                 status: "new", 
                                                 stage: "new", 
                                                 operation_type: 'update', 
@@ -212,7 +211,7 @@ module BulkOps
 
     def search
       start = (params['start'] || 0).to_i
-      rows = (params['rows'] || 10).to_i
+      rows = (params['rows'] || 9999).to_i
       builder = BulkOps::SearchBuilder.new(scope: self,
                                            collection: params['collection'],
                                            collection_id: params['collection_id'],
