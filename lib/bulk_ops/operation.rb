@@ -348,7 +348,7 @@ module BulkOps
         values.map do |value|
           next if value.is_a? DateTime 
           value = (label ? WorkIndexer.fetch_remote_label(value.id) : value.id) unless value.is_a? String
-          value.gsub("\"","\"\"")
+          value.gsub("\"","\"\"").prepend('"').append('"')
         end.join(';')
       end.join(',')
     end
