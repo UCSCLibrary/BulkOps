@@ -3,9 +3,19 @@ jQuery(document).ready(function() {
   jQuery('button.select-all').click(function() {
     jQuery(this).parent().siblings('ul').find('input').prop('checked',true)
   });
-  jQuery('button.deselect-all').click(function() {
+  jQuery('button.select-none').click(function() {
     jQuery(this).parent('div').siblings('ul').find('input').prop('checked',false)
   });
+
+  jQuery('div#search-summary button.select-all').click(function() {
+    console.log('clicked!')
+    jQuery('ul#search-sample').find('input').prop('checked',true)
+  });
+  jQuery('div#search-summary button.deselect-all').click(function() {
+    jQuery('ul#search-sample').find('input').prop('checked',false)
+  });
+
+
 
   jQuery('input.bulk-ops-index-checkbox').change(function(){
     jQuery('input#bulk-ops-select-all').prop('checked', false);
@@ -20,7 +30,6 @@ jQuery(document).ready(function() {
   });
 
   jQuery('input#use-default-fields').click(function(){
-    console.log("test!")
     if( jQuery(this).is(':checked')) {
       jQuery('div#choose-fields').hide()
     }else{
