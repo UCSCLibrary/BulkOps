@@ -16,8 +16,8 @@
         </div>
         
         <div>
-            <label> keyword search </label>
-            <input type="text" name="q" />
+            <label for="keyword"> keyword search </label>
+            <input id="keyword" type="text" name="q" />
         </div>
     </form>
     <button id="add-works-search" type="button"> Search </button>
@@ -44,6 +44,10 @@
                     </li>
                 </ul>
             </div>
+            <input class="prev-search-field" id="prev-collection-id" type="hidden" name="collection_id" value=""/>
+            <input class="prev-search-field" id="prev-admin-set-id" type="hidden" name="admin_set_id" value=""/>
+            <input class="prev-search-field" id="prev-workflow-state" type="hidden" name="workflow_state" value=""/>
+            <input class="prev-search-field" id="prev-keyword" type="hidden" name="keyword" value=""/>
         <% end %>
     </div>
 

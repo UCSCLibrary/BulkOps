@@ -14,9 +14,22 @@ jQuery(document).ready(function() {
         if(result["num_results"] > 0) {
           jQuery("div#search-summary p#count").html(result["num_results"]);
           jQuery("div#search-summary div#all-results").show();
-          
-          jQuery("div#search-summary div#previous-search-fields").remove();
-          jQuery("#ajax-work-search").clone().attr("id","previous-search-fields").hide().appendTo("div#search-summary > form");
+
+          //Remove all previous search fields from form
+          jQuery("input.prev-search-field").val("");
+
+          //Add fields for this search to the form for adding to update
+          var $collection_id = jQuery("#ajax-work-search #collection-id").val()
+          jQuery("input#prev-collection-id").val($collection_id)
+
+          var $admin_set_id = jQuery("#ajax-work-search #admin-set-id").val()
+          jQuery("input#prev-admin-set-id").val($admin_set_id)
+
+          var $workflow_state = jQuery("#ajax-work-search #workflow-state").val()
+          jQuery("input#workflow-state").val($workflow_state)
+
+          var $keyword = jQuery("#ajax-work-search #keyword").val()
+          jQuery("input#keyword").val($keyword)
         }
         
         jQuery.each(result["results"],function(index,work){
