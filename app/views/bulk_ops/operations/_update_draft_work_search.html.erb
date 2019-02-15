@@ -1,7 +1,7 @@
 <div id="add-works" class="lister">
     <h3>Add Works to Update List</h3>
 
-    <div id="ajax-work-search">
+    <form id="ajax-work-search">
         <div>    
             <label for="collection-id"> Collection </label>
             <select name="collection_id" id="collection-id"><%= options_for_select @collections.insert(0,["Any",""]) %> </select>
@@ -19,7 +19,7 @@
             <label> keyword search </label>
             <input type="text" name="q" />
         </div>
-    </div>
+    </form>
     <button id="add-works-search" type="button"> Search </button>
 
     <div id="search-summary">
