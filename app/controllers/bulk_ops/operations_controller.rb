@@ -180,12 +180,16 @@ module BulkOps
                                              admin_set: params['admin_set'],
                                              admin_set_id: params['admin_set_id'],
                                              workflow_state: params['workflow_state'],
-                                             keyword_query: params['q']).rows(rows)
+                                             keyword_query: params['q'],
+                                             rows: rows)
+        puts "ROWS: #{builder.rows}"
         result = repository.search(builder)
         total = result.total
         start = 0
         while start < total
-          docs = repository.search(builder.rows(rows).start(start)).documents
+          builder.start = start
+          puts "START: #{start} : #{builder.start}"
+          docs = repository.search(builder).documents
           docs.each do |doc|
             unless BulkOps::WorkProxy.find_by(operation_id: @operation.id, work_id: doc.id)
               BulkOps::WorkProxy.create(operation_id: @operation.id, 
