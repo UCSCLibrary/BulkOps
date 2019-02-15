@@ -1,24 +1,25 @@
 <div id="add-works" class="lister">
     <h3>Add Works to Update List</h3>
 
-    <div>    
-        <label> Collection </label>
-        <select><%= options_for_select @collections.insert(0,["Any",""]) %> </select>
+    <div id="ajax-work-search">
+        <div>    
+            <label for="collection-id"> Collection </label>
+            <select name="collection_id" id="collection-id"><%= options_for_select @collections.insert(0,["Any",""]) %> </select>
+        </div>
+        <div>    
+            <label for="admin-set-id"> Administrative Set </label>
+            <select name="admin_set_id" id="admin-set-id"> <%= options_for_select @admin_sets.insert(0,["Any",""]) %> </select>
+        </div>
+        <div>    
+            <label for="workflow_state"> Workflow Step </label>
+            <select name="workflow_state" id="workflow-state"> <%= options_for_select @workflow_states.insert(0,["Any",""]) %></select>
+        </div>
+        
+        <div>
+            <label> keyword search </label>
+            <input type="text" name="q" />
+        </div>
     </div>
-    <div>    
-        <label> Administrative Set </label>
-        <select> <%= options_for_select @admin_sets.insert(0,["Any",""]) %> </select>
-    </div>
-    <div>    
-        <label> Workflow Step </label>
-        <select> <%= options_for_select @workflow_states.insert(0,["Any",""]) %></select>
-    </div>
-    
-    <div>
-        <label> keyword search </label>
-        <input type="text" name="q" />
-    </div>
-
     <button id="add-works-search" type="button"> Search </button>
 
     <div id="search-summary">
@@ -29,7 +30,11 @@
                 <input type="submit"  id="draft-update-add-works" value="Add to Update" />
             </div>
             <div id="draft-search-display">
-                <p id="count"></p>
+                <div id="all-results" style="display:none">
+                    <p id="count"></p>
+                    <input type="checkbox" name="add_all_results" id="add-all-results" value="true"/>
+                    <label for="add-all-results">Add all search results to update</label>
+                </div>
                 <ul id="search-sample">
                     <li id="template" class="hidden">
                         <input type="checkbox" name="added_work_ids[]" value=""/>

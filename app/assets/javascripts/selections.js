@@ -8,10 +8,9 @@ jQuery(document).ready(function() {
   });
 
   jQuery('div#search-summary button.select-all').click(function() {
-    console.log('clicked!')
     jQuery('ul#search-sample').find('input').prop('checked',true)
   });
-  jQuery('div#search-summary button.deselect-all').click(function() {
+  jQuery('div#search-summary button.select-none').click(function() {
     jQuery('ul#search-sample').find('input').prop('checked',false)
   });
 

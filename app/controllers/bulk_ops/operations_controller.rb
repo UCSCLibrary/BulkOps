@@ -168,8 +168,40 @@ module BulkOps
     end
     
     def edit
-      if params['added_work_ids'] && @operation.draft?
+      redirect_to action: "show", id: @operation.id unless @operation.draft?
+      added = false
+      destroyed = false
+
+      if params['add_all_results'].to_s == "true"
+        rows = 100
+        builder = BulkOps::SearchBuilder.new(scope: self,
+                                             collection: params['collection'],
+                                             collection_id: params['collection_id'],
+                                             admin_set: params['admin_set'],
+                                             admin_set_id: params['admin_set_id'],
+                                             workflow_state: params['workflow_state'],
+                                             keyword_query: params['q']).rows(rows)
+        result = repository.search(builder)
+        total = result.total
+        start = 0
+        while start < total
+          docs = repository.search(builder.rows(rows).start(start)).documents
+          docs.each do |doc|
+            unless BulkOps::WorkProxy.find_by(operation_id: @operation.id, work_id: doc.id)
+              BulkOps::WorkProxy.create(operation_id: @operation.id, 
+                                        work_id: doc.id,
+                                        status: "new",
+                                        last_event: DateTime.now,
+                                        message: params['git_message'] || "Works added to update by #{current_user.name || current_user.email}")
+              added = true
+            end
+          end
+          start += rows
+        end
+        
+      elsif params['added_work_ids'] 
         added = false
+
         params['added_work_ids'].each do |work_id|
           next if work_id.blank?
           unless BulkOps::WorkProxy.find_by(operation_id: @operation.id, work_id: work_id)
@@ -177,24 +209,24 @@ module BulkOps
                                       work_id: work_id,
                                       status: "new",
                                       last_event: DateTime.now,
-                                      message: params['git_message'] || "Works added to future update by #{current_user.name || current_user.email}")
+                                      message: params['git_message'] || "Works added to update by #{current_user.name || current_user.email}")
             added = true
           end
         end
-        flash[:notice] = "Works added successfully to update" if added
       end
 
-      destroyed = false
-      if params['remove_works'] && params['remove_work_ids'] && @operation.draft?
+      if params['remove_works'] && params['remove_work_ids']
+        destroyed = false
         params['remove_work_ids'].each do |work_id|
           if (proxy = BulkOps::WorkProxy.find_by(operation_id: @operation.id, work_id: work_id))
             proxy.destroy!
             destroyed = true
           end
         end
-        flash[:notice] = "Works removed successfully from update" if destroyed
       end
 
+      flash[:notice] = "Works removed successfully from update" if destroyed
+      flash[:notice] = "Works added successfully to update" if added
       redirect_to action: "show", id: @operation.id
     end
 
@@ -211,17 +243,18 @@ module BulkOps
 
     def search
       start = (params['start'] || 0).to_i
-      rows = (params['rows'] || 9999).to_i
+      rows = (params['rows'] || 15).to_i
       builder = BulkOps::SearchBuilder.new(scope: self,
                                            collection: params['collection'],
                                            collection_id: params['collection_id'],
                                            admin_set: params['admin_set'],
                                            admin_set_id: params['admin_set_id'],
                                            workflow_state: params['workflow_state'],
-                                           keyword_query: params['q']).rows(rows)
-      results = repository.search(builder).documents
+                                           keyword_query: params['q'])
+      builder = builder.rows(rows).start(start)
+      result = repository.search(builder)
       response.headers['Content-Type'] = 'application/json'
-      render json: {num_results: results.count, results: results[start,rows]}
+      render json: {num_results: result.total, results: result.documents}
     end
 
     def destroy
