@@ -16,7 +16,7 @@ jQuery(document).ready(function() {
           jQuery("div#search-summary div#all-results").show();
           
           jQuery("div#search-summary div#previous-search-fields").remove();
-          jQuery("div#ajax-work-search").clone().attr("id","previous-search-fields").hide().appendTo("div#search-summary > form");
+          jQuery("#ajax-work-search").clone().attr("id","previous-search-fields").hide().appendTo("div#search-summary > form");
         }
         
         jQuery.each(result["results"],function(index,work){
