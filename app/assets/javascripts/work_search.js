@@ -5,7 +5,7 @@ jQuery(document).ready(function() {
       url: 'search', // url where to submit the request
       type : "GET", // type of action POST || GET
       dataType : 'json', // data type
-      data : jQuery("form#add-works-to-draft").serialize(), // post data || get data
+      data : jQuery("form#ajax-work-search").serialize(), // post data || get data
       success : function(result) {
         // you can see the result from the console
         // tab of the developer tools

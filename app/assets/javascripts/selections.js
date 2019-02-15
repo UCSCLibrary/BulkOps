@@ -14,8 +14,6 @@ jQuery(document).ready(function() {
     jQuery('ul#search-sample').find('input').prop('checked',false)
   });
 
-
-
   jQuery('input.bulk-ops-index-checkbox').change(function(){
     jQuery('input#bulk-ops-select-all').prop('checked', false);
   });
