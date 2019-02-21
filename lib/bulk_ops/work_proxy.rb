@@ -2,6 +2,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   require 'uri'
   OPTION_FIELDS = ['visibility','work type']
   RELATIONSHIP_FIELDS = ['parent','child','collection','next','order']
+  REFERENCE_IDENTIFIER_FIELDS = ['Reference Identifier','ref_id','Reference ID','Relationship ID','Relationship Identifier','Reference Identifier Type','Reference ID Type','Ref ID Type','relationship_identifier_type','relationship_id_type']
   FILE_FIELDS = ['file','files','filename','filenames']
   FILE_ACTIONS = ['add','upload','remove','delete']
   SEPARATOR = ';'
@@ -114,6 +115,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     controlled_data = {}
 
     raw_data.each do |field, value| 
+      next if value.blank?  or field.blank?
       field = field.to_s
 
       #If our CSV interpreter is feeding us the headers as a line, ignore it.
@@ -203,7 +205,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   def interpret_scalar_fields raw_data
     metadata = {}
     raw_data.each do |field, values| 
-      next if values.nil? or field.nil? or field == values
+      next if values.blank? or field.nil? or field == values
       # get the field name, if this column is a metadata field
       next unless field_name = find_field_name(field.to_s)
       # Ignore controlled fields
@@ -227,9 +229,11 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     
     metadata = {}
     raw_data.each do |field, value|
+      next if value.blank?  or field.blank?
       field = field.to_s
       #If our CSV interpreter is feeding us the headers as a line, ignore it.
       next if field == value
+
 
       # Check if this is a file field, and whether we are removing or adding a file
       next unless (action = is_file_field?(field))
@@ -260,8 +264,10 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
   def interpret_option_fields raw_data
     raw_data.each do |field,value|
+      next if value.blank? or field.blank?
       field = field.to_s
       next if value == field
+
       normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
       if ["visibility", "public"].include?(normfield)
         update(visibility: format_visibility(value))
@@ -290,13 +296,16 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   def interpret_relationship_fields raw_data
     metadata = {}
     raw_data.each do |field,value|
+      next if value.blank?  or field.blank?
       field = field.to_s              
+
+      next if value == field
+
       if (split = field.split(":")).count == 2
-        update(reference_identifier: split.first)
+        ref_id = split.first
         field = split.last.to_s
       end
 
-      next if value == field
       normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
       #      next unless RELATIONSHIP_FIELDS.include? normfield
       
@@ -317,11 +326,11 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       ["parent","child","next"].select{|type| normfield.include?(type)}.first
       # correctly interpret the notation "id:a78C2d81"
       if ((split = value.split(":")).count == 2)
-        update(reference_identifier: split.first)
+        ref_id = split.first
         value = split.last
       end
       BulkOps::Relationship.create( { work_proxy_id: id,
-                                      identifier_type: reference_identifier,
+                                      identifier_type: ref_id || reference_identifier,
                                       relationship_type: normfield,
                                       object_identifier: value,
                                       status: "new"} )

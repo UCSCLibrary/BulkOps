@@ -83,7 +83,7 @@ module BulkOps
 
     def apply!
       status = "#{type}ing"
-      update({stage: running, message: "#{type.titleize} initiated by #{user.name || user.email}"})
+      update({stage: "running", message: "#{type.titleize} initiated by #{user.name || user.email}"})
 #      @stage = "running"
       final_spreadsheet
  
@@ -234,16 +234,6 @@ module BulkOps
       create_new_spreadsheet(fields: fields, work_ids: work_ids)
     end
 
-    def self.works_to_csv work_ids, fields
-      work_ids.reduce(fields.join(',')) do |csv, work_id| 
-        if work_csv = work_to_csv(work_id,fields)
-          csv + "\r\n" + work_csv
-        else
-          csv
-        end
-      end
-    end
-
     def get_spreadsheet return_headers: false
       git.load_metadata return_headers: return_headers
     end
@@ -330,42 +320,15 @@ module BulkOps
       @git ||= BulkOps::GithubAccess.new(name, @user)
     end
 
-    def self.work_to_csv work_id, fields
-      return false if work_id.empty?
-      begin
-        work = Work.find(work_id)
-      rescue ActiveFedora::ObjectNotFoundError
-        return false
-      end
-      line = ''
-      fields.map do |field_name| 
-        label = false
-        if field_name.downcase.include? "label"
-          label = true
-          field_name = field_name[0..-7]
-        end
-        values = work.send(field_name)
-        values.map do |value|
-          next if value.is_a? DateTime 
-          value = (label ? WorkIndexer.fetch_remote_label(value.id) : value.id) unless value.is_a? String
-          value.gsub("\"","\"\"").prepend('"').concat('"')
-        end.join(';')
-      end.join(',')
-    end
-
-    def self.filter_fields fields, label = true
-      fields.each do |field_name, field|
-        # reject if not in scoobysnacks
-        # add label if needed
-      end
-    end
-
     def create_new_spreadsheet(fields: nil, work_ids: nil)
       work_ids ||= work_proxies.map{|proxy| proxy.work_id}
       fields ||= self.class.default_metadata_fields
-      @metadata = self.class.works_to_csv(work_ids, fields)
-      git.add_new_spreadsheet @metadata
+      if work_ids.blank? || work_ids.count < 50
+        BulkOps::CreateSpreadsheetJob.perform_now(git.name, work_ids, fields, user)
+      else
+        BulkOps::CreateSpreadsheetJob.perform_later(git.name, work_ids, fields, user)
+      end
     end
-    
+
   end
 end

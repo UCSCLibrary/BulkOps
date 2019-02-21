@@ -1,10 +1,10 @@
 require "bulk_ops/version"
 
 module BulkOps
-  dirstring = File.join( File.dirname(__FILE__), 'bulk_ops/*.rb')
+  dirstring = File.join( File.dirname(__FILE__), 'bulk_ops/**/*.rb')
   Dir[dirstring].each  do |file| 
     begin
-      require "bulk_ops/#{File.basename(file)}" 
+      require file 
     rescue Exception => e
       puts "ERROR LOADING #{File.basename(file)}: #{e}"
     end

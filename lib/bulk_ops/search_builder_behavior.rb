@@ -23,6 +23,7 @@ module BulkOps::SearchBuilderBehavior
                                    :in_workflow_state, 
                                    :with_keyword_query]
   end
+
   # @param [scope] Typically the controller object
   def initialize(scope: {}, 
                  collection: nil, 

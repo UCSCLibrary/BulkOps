@@ -29,6 +29,7 @@ module BulkOps
     end
 
     def is_file_field?(fieldname)
+      return false if fieldname.blank?
       field_parts = fieldname.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
       return false unless field_parts.any?{ |field_type| BulkOps::WorkProxy::FILE_FIELDS.include?(field_type) }
       return "remove" if field_parts.any?{ |field_type| ['remove','delete'].include?(field_type) }
@@ -49,6 +50,7 @@ module BulkOps
     end
 
     def get_file_paths(filestring)
+      return [] if filestring.blank?
       filenames = filestring.split(BulkOps::WorkProxy::SEPARATOR)
       filenames.map { |filename| File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix || "", filename) }
     end
@@ -68,27 +70,24 @@ module BulkOps
       get_spreadsheet.each_with_index do |row, row_num|
         file_fields = row.select { |field, value| is_file_field?(field) }
         file_fields.each do |column_name, filestring|
-          next if column_name == filestring
+          next if filestring.blank? or column_name == filestring
           get_file_paths(filestring).each do |filepath|
-            errors << BulkOps::Error.new({type: :cannot_find_file, file: filename}) unless  File.file? filepath
+            file_errors << BulkOps::Error.new({type: :cannot_find_file, file: filename}) unless  File.file? filepath
           end
         end
       end
-      @verification_errors << file_errors
+      @verification_errors.concat file_errors
       return file_errors
     end
 
     def verify_configuration
       BulkOps::Operation::OPTION_REQUIREMENTS.each do |option_name, option_info|
-
         # Make sure it's present if required
         if (option_info["required"].to_s == "true") || (option_info["required"].to_s == type)
-
           if options[option_name].blank?
             @verification_errors << BulkOps::Error.new({type: :missing_required_option, option_name: option_name})
           end
         end
-
         # Make sure the values are acceptable if present
         unless (values = option_info.values).blank? || options[option_name].blank?
           unless values.include? option[option_name]
@@ -97,7 +96,6 @@ module BulkOps
           end        
         end
       end    
-      return errors
     end
 
     def downcase_first_letter(str)
@@ -107,11 +105,9 @@ module BulkOps
     # Make sure the headers in the spreadsheet are matching to properties
     def verify_column_headers
       
-      errors = {cannot_get_headers:[],
-                bad_header:[]}
       unless (headers = get_spreadsheet.headers)
         # log an error if we can't get the metadata headers
-        errors[:cannot_get_headers] << true
+        @verification_errors << BulkOps::Error.new({type: :bad_header, field: column_name})      
       end
 
       headers.each do |column_name|
@@ -128,7 +124,6 @@ module BulkOps
         next if Work.attribute_names.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
         @verification_errors << BulkOps::Error.new({type: :bad_header, field: column_name})
       end
-      return errors
     end
 
     def verify_remote_urls
@@ -141,7 +136,6 @@ module BulkOps
           end
         end
       end
-      return errors
     end
 
     def get_id_from_row row
@@ -155,65 +149,63 @@ module BulkOps
       end
     end
 
-      def verify_works_to_update
-        return [] unless operation_type == "update"
-        get_spreadsheet.each_with_index do |row, row_num|
-          id = get_ref_id(row)
-          file_fields = row.select { |field, value| is_file_field?(field) }
-          file_fields.each do |column_name, filestring|
-            next if column_name == filestring
-            get_file_paths(filestring).each do |filepath|
-              errors << BulkOps::Error.new({type: :cannot_find_file, file: filename}) unless  File.file? filepath
-            end
-          end
-        end
-        @verification_errors << file_errors
-        return file_errors
-      end
 
-      def get_ref_id row
-        row.each do |field,value| 
-          next unless BulkOps::WorkProxy::REFERENCE_IDENTIFIER_FIELDS.any?{ |ref_field| normalize_field(ref_field) ==  normalize_field(field) }
-          return value 
-        end
-        # No reference identifier specified in the row. Use the default for the operation.
-        return reference_identifier || :id
-      end
-
-      def normalize_field field
-        field.downcase.parameterize.gsub(/[_\s-]/,'')
-      end
-
-      def verify_internal_references
-        # TODO 
-        # This is sketchy. Redo it.
-        get_spreadsheet.each do |row,row_num|
-          ref_id = get_ref_id(row)
-          BulkOps::Operation::RELATIONSHIP_COLUMNS.each do |relationship|
-            next unless (obj_id = row[relationship])
-            if (split = obj_id.split(':')).count == 2
-              ref_id = split[0].downcase
-              obj_id = split[1]
-            end
-            
-            if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
-              # This is a row number reference. It should be an integer in the range of possible row numbers.
-              unless obj_id.is_a? Integer && obj_id > 0 && obj_id <= metadata.count
-                @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
-              end  
-            elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
-              # This is a hydra id reference. It should correspond to an object already in the repo
-              unless SolrDocument.find(obj_id) || ActiveFedora::Base.find(obj_id)
-                @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num+ROW_OFFSET})
-              end
-            else
-
-              # This must be based on some other presumably unique field in hyrax, or a dummy field in the spreadsheet. We haven't added this functionality yet. Ignore for now.
-
-            end
-          end      
+    def verify_works_to_update
+      return [] unless operation_type == "update"
+      get_spreadsheet.each_with_index do |row, row_num|
+        id = get_ref_id(row)
+        #TODO: find by other field. for now just id
+        unless (record_exists(id))
+          @verification_errors << BulkOps::Error.new(type: :cannot_find_work, id: id)
         end
       end
-
     end
+
+    def get_ref_id row
+      row.each do |field,value| 
+        next if field.blank? or value.blank? or field === value
+        next unless BulkOps::WorkProxy::REFERENCE_IDENTIFIER_FIELDS.any?{ |ref_field| normalize_field(ref_field) ==  normalize_field(field) }
+        return value 
+      end
+      # No reference identifier specified in the row. Use the default for the operation.
+      return reference_identifier || :id
+    end
+
+    def normalize_field field
+      return '' if field.nil?
+      field.downcase.parameterize.gsub(/[_\s-]/,'')
+    end
+
+    def verify_internal_references
+      # TODO 
+      # This is sketchy. Redo it.
+      get_spreadsheet.each do |row,row_num|
+        ref_id = get_ref_id(row)
+        BulkOps::Operation::RELATIONSHIP_COLUMNS.each do |relationship|
+          next unless (obj_id = row[relationship])
+          if (split = obj_id.split(':')).count == 2
+            ref_id = split[0].downcase
+            obj_id = split[1]
+          end
+          
+          if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
+            # This is a row number reference. It should be an integer in the range of possible row numbers.
+            unless obj_id.is_a? Integer && obj_id > 0 && obj_id <= metadata.count
+              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
+            end  
+          elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
+            # This is a hydra id reference. It should correspond to an object already in the repo
+            unless record_exists?(obj_id)
+              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num+ROW_OFFSET})
+            end
+          else
+
+            # This must be based on some other presumably unique field in hyrax, or a dummy field in the spreadsheet. We haven't added this functionality yet. Ignore for now.
+
+          end
+        end      
+      end
+    end
+
   end
+end

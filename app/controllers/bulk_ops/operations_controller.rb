@@ -45,6 +45,7 @@ module BulkOps
     end
 
     def duplicate 
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       case params['status_to_edit']
       when "all"
         proxies = @operation.work_proxies
@@ -81,43 +82,45 @@ module BulkOps
     end
 
     def create
-        params.require([:name,:type,:notified_users])
-        params.permit([:fields,
-                       :file_method,
-                       :reference_identifier,
-                       :include_reference_column,
-                       :reference_column_name,
-                       :visibility,:work_type,
-                       :file_prefix,
-                       :ignored_columns,:git_message])
-        # Create a unique operation name if the chosen name is taken
-        op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
-        
-        message = params['git_message'] || "This #{params['type']} is brand new, just created"
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
 
-        operation = BulkOps::Operation.create(name: op_name, 
-                                              status: "new", 
-                                              stage: "new", 
-                                              operation_type: params['type'], 
-                                              message: message, 
-                                              user: current_user)
+      params.require([:name,:type,:notified_users])
+      params.permit([:fields,
+                     :file_method,
+                     :reference_identifier,
+                     :include_reference_column,
+                     :reference_column_name,
+                     :visibility,:work_type,
+                     :file_prefix,
+                     :ignored_columns,:git_message])
+      # Create a unique operation name if the chosen name is taken
+      op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
+      
+      message = params['git_message'] || "This #{params['type']} is brand new, just created"
 
-        operation.create_branch fields: params['fields'],  options: updated_options
-        operation.status = "OK"
+      operation = BulkOps::Operation.create(name: op_name, 
+                                            status: "new", 
+                                            stage: "new", 
+                                            operation_type: params['type'], 
+                                            message: message, 
+                                            user: current_user)
 
-        case params['type']
-        when "ingest"
-          operation.stage = "pending"
-          operation.message = "Generated blank ingest spreadsheet and created Github branch for this ingest"
-        when "update"
-          operation.stage = "draft"
-          operation.message = "New update draft created. Ready for admins to select which works to edit."
-        end
+      operation.create_branch fields: params['fields'],  options: updated_options
+      operation.status = "OK"
 
-        operation.save
+      case params['type']
+      when "ingest"
+        operation.stage = "pending"
+        operation.message = "Generated blank ingest spreadsheet and created Github branch for this ingest"
+      when "update"
+        operation.stage = "draft"
+        operation.message = "New update draft created. Ready for admins to select which works to edit."
+      end
 
-        #redirect to operation show page
-        redirect_to action: "show", id: operation.id, notice: "Bulk #{params['type']} created successfully"
+      operation.save
+
+      #redirect to operation show page
+      redirect_to action: "show", id: operation.id, notice: "Bulk #{params['type']} created successfully"
     end
 
     def new
@@ -139,6 +142,7 @@ module BulkOps
     end
 
     def update
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       #if a new spreadsheet is uploaded, put it in github
       if params['spreadsheet'] && @operation.name
         @operation.update_spreadsheet params['spreadsheet'], message: params['git_message']
@@ -161,6 +165,7 @@ module BulkOps
     end
 
     def finalize_draft
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       @operation.finalize_draft
       @operation.stage = "pending"
       @operation.save
@@ -180,8 +185,7 @@ module BulkOps
                                              admin_set: params['admin_set'],
                                              admin_set_id: params['admin_set_id'],
                                              workflow_state: params['workflow_state'],
-                                             keyword_query: params['q'],
-                                             rows: rows)
+                                             keyword_query: params['q']).rows(rows)
         puts "ROWS: #{builder.rows}"
         result = repository.search(builder)
         total = result.total
@@ -262,18 +266,21 @@ module BulkOps
     end
 
     def destroy
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       @operation.destroy!
       flash[:notice] = "Bulk #{@operation.type} deleted successfully"
       redirect_to action: "index"
     end
 
     def request_apply
-      BulkOps::VerificationJob.new(@operation).perform_later
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      BulkOps::VerificationJob.perform_later(@operation)
           flash[:notice] = "We are now running the data from your spreadsheet through an automatic verification process to anticipate any problems before we begin the ingest. This may take a few minutes. You should recieve an email when the process completes."
           redirect_to action: "show"
     end
     
     def approve
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       begin
         @operation.merge_pull_request @operation.pull_id, message: params['git_message']
         @operation.delete_branch
@@ -288,6 +295,7 @@ module BulkOps
     end
     
     def apply
+      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       parameters = JSON.parse request.raw_post
       unless parameters['action'] == 'closed' 
         render plain: "IGNORING THIS EVENT" 
@@ -311,11 +319,6 @@ module BulkOps
       render plain: "OK"
     end
 
-    def verify_github_signature
-      signature = 'sha1=' + OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new('sha1'), BulkOps::GithubAccess.webhook_token, request.raw_post)
-      return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.headers['X-HUB-SIGNATURE'])
-    end
-
     def csv
       response.headers['Content-Type'] = 'text/csv'
       response.headers['Content-Disposition'] = "attachment; filename=#{@operation.name}.csv"    
@@ -327,6 +330,11 @@ module BulkOps
     end
 
     private
+
+    def verify_github_signature
+      signature = 'sha1=' + OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new('sha1'), BulkOps::GithubAccess.webhook_token, request.raw_post)
+      return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.headers['X-HUB-SIGNATURE'])
+    end
 
     def updated_options
       #todo: this method is poorly named
@@ -403,6 +411,7 @@ module BulkOps
 
     def github_auth
       @github_username = BulkOps::GithubAccess.username current_user
+      @github_authenticated = @github_username.is_a? String
       cred = BulkOps::GithubCredential.find_by(user_id: current_user.id)
       @auth_url = BulkOps::GithubAccess.auth_url current_user
       session[:git_auth_redirect] = request.original_url
@@ -411,8 +420,6 @@ module BulkOps
     def repository
       @repository ||= Blacklight::Solr::Repository.new(CatalogController.blacklight_config)
     end
-
-    
 
   end
 end

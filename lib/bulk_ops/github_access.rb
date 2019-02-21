@@ -138,8 +138,14 @@ class BulkOps::GithubAccess
     end
   end
 
-  def add_new_spreadsheet file_contents, message=false
-    add_contents(spreadsheet_path, file_contents, message)
+  def add_new_spreadsheet file, message=false
+    if file.is_a? Tempfile
+      add_file file.path, SPREADSHEET_FILENAME, message: message
+    elsif file.is_?(String) && File.file?(file)
+      add_file file, SPREADSHEET_FILENAME, message: message
+    elsif file.is_a? String
+      add_contents(spreadsheet_path, SPREADSHEET_FILENAME, message: message)
+    end
   end
 
   def list_branches
@@ -153,7 +159,7 @@ class BulkOps::GithubAccess
   def update_spreadsheet file, message: false
     message ||= "updating metadata spreadsheet through hyrax browser interface."
     sha = get_file_sha(spreadsheet_path)
-    file = File.new(file) if file.is_a?(String) && Pathname(file).exist?
+    file = File.new(file) if file.is_a?(String) && File.exist?(file)
     client.update_contents(repo, spreadsheet_path, message, sha, file.read, branch: name)
   end
 
