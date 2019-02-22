@@ -68,10 +68,12 @@ class BulkOps::GithubAccess
     YAML.load_file("#{Rails.root.to_s}/config/github.yml")[Rails.env]["client_secret"]
   end
   
-  def self.redirect_endpoint user
+  def self.redirect_endpoint user, ssl: false
     host = Socket.gethostname
     host = "localhost" if Rails.env.development? or Rails.env.test?
-    "http://#{host}/bulk_ops/authorize/#{User.first.id}"
+    protocol = Rails.production? ? "https" : "http"
+    protocol = "https" if ssl
+    "#{protocol}://#{host}/bulk_ops/authorize/#{User.first.id}"
   end
 
   def self.create_branch! name 
