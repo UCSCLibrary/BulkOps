@@ -2,16 +2,17 @@ class BulkOps::CreateSpreadsheetJob < ActiveJob::Base
   
   queue_as :default
 
-  def perform(branch_name,work_ids, fields, user)
-    Tempfile.open('bulk_ops_metadata') do |csv_file|
-      csv_file.write(fields.join(','))
-      work_ids.each do |work_id| 
-        if work_csv = work_to_csv(work_id,fields)
-          csv_file.write("\r\n" + work_csv)
-        end
-      end        
-      BulkOps::GithubAccess.new(branch_name, user).add_new_spreadsheet(csv_file)
+  def perform(branch_name, work_ids, fields, user)
+    csv_file = Tempfile.new('bulk_ops_metadata')
+    csv_file.write(fields.join(','))
+    work_ids.each do |work_id| 
+      if work_csv = work_to_csv(work_id,fields)
+        csv_file.write("\r\n" + work_csv)
+      end
     end
+    csv_file.close
+    BulkOps::GithubAccess.new(branch_name, user).add_new_spreadsheet(csv_file.path)
+    csv_file.unlink
   end
 
   private
