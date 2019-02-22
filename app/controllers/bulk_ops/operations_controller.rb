@@ -93,6 +93,7 @@ module BulkOps
                      :visibility,:work_type,
                      :file_prefix,
                      :ignored_columns,:git_message])
+
       # Create a unique operation name if the chosen name is taken
       op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
       
@@ -105,11 +106,11 @@ module BulkOps
                                             message: message, 
                                             user: current_user)
 
-      operation.create_branch fields: params['fields'],  options: updated_options
       operation.status = "OK"
 
       case params['type']
       when "ingest"
+        operation.create_branch fields: params['fields'],  options: updated_options
         operation.stage = "pending"
         operation.message = "Generated blank ingest spreadsheet and created Github branch for this ingest"
       when "update"
