@@ -140,8 +140,9 @@ class BulkOps::GithubAccess
 
   def add_new_spreadsheet file, message=false
     if file.is_a? Tempfile
+      file.close
       add_file file.path, SPREADSHEET_FILENAME, message: message
-    elsif file.is_?(String) && File.file?(file)
+    elsif file.is_a?(String) && File.file?(file)
       add_file file, SPREADSHEET_FILENAME, message: message
     elsif file.is_a? String
       add_contents(spreadsheet_path, SPREADSHEET_FILENAME, message: message)
