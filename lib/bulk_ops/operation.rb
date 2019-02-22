@@ -211,7 +211,7 @@ module BulkOps
     end
 
     def finalize_draft(fields: nil, work_ids: nil)
-      create_new_spreadsheet(fields: fields, work_ids: work_ids)
+      create_branch(fields: fields, work_ids: work_ids)
       update(stage: "pending")
     end
 
@@ -323,7 +323,8 @@ module BulkOps
     def create_new_spreadsheet(fields: nil, work_ids: nil)
       work_ids ||= work_proxies.map{|proxy| proxy.work_id}
       fields ||= self.class.default_metadata_fields
-      if work_ids.blank? || work_ids.count < 50
+      work_ids = [] if work_ids.nil?
+      if work_ids.count < 50
         BulkOps::CreateSpreadsheetJob.perform_now(git.name, work_ids, fields, user)
       else
         BulkOps::CreateSpreadsheetJob.perform_later(git.name, work_ids, fields, user)
