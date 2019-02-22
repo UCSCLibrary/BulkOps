@@ -107,10 +107,10 @@ module BulkOps
                                             user: current_user)
 
       operation.status = "OK"
+      operation.create_branch fields: params['fields'], options: updated_options, operation_type: params['type'].to_sym
 
       case params['type']
       when "ingest"
-        operation.create_branch fields: params['fields'],  options: updated_options
         operation.stage = "pending"
         operation.message = "Generated blank ingest spreadsheet and created Github branch for this ingest"
       when "update"
@@ -168,8 +168,6 @@ module BulkOps
     def finalize_draft
       redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       @operation.finalize_draft
-      @operation.stage = "pending"
-      @operation.save
       redirect_to action: "show"
     end
     

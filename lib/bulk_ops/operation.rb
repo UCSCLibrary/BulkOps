@@ -211,11 +211,11 @@ module BulkOps
     end
 
     def finalize_draft(fields: nil, work_ids: nil)
-      create_branch(fields: fields, work_ids: work_ids)
+      create_new_spreadsheet(fields: fields, work_ids: work_ids)
       update(stage: "pending")
     end
 
-    def create_branch(fields: nil, work_ids: nil, options: nil)
+    def create_branch(fields: nil, work_ids: nil, options: nil, operation_type: :ingest)
       git.create_branch!
       bulk_ops_dir = Gem::Specification.find_by_name("bulk_ops").gem_dir
 
@@ -231,7 +231,7 @@ module BulkOps
         git.update_options full_options
       end
 
-      create_new_spreadsheet(fields: fields, work_ids: work_ids)
+      create_new_spreadsheet(fields: fields, work_ids: work_ids) if operation_type == :ingest
     end
 
     def get_spreadsheet return_headers: false

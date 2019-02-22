@@ -71,7 +71,7 @@ class BulkOps::GithubAccess
   def self.redirect_endpoint user, ssl: false
     host = Socket.gethostname
     host = "localhost" if Rails.env.development? or Rails.env.test?
-    protocol = Rails.production? ? "https" : "http"
+    protocol = Rails.env.production? ? "https" : "http"
     protocol = "https" if ssl
     "#{protocol}://#{host}/bulk_ops/authorize/#{User.first.id}"
   end
