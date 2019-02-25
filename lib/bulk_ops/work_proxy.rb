@@ -5,7 +5,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   REFERENCE_IDENTIFIER_FIELDS = ['Reference Identifier','ref_id','Reference ID','Relationship ID','Relationship Identifier','Reference Identifier Type','Reference ID Type','Ref ID Type','relationship_identifier_type','relationship_id_type']
   FILE_FIELDS = ['file','files','filename','filenames']
   FILE_ACTIONS = ['add','upload','remove','delete']
-  SEPARATOR = ';'
+  SEPARATOR = ';;'
   self.table_name = "bulk_ops_work_proxies"
   belongs_to :operation, class_name: "BulkOps::Operation", foreign_key: "operation_id"
   has_many :relationships, class_name: "BulkOps::Relationship"
@@ -213,7 +213,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       values.split(SEPARATOR).each do |value|
         next if value.blank?
         value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
-        (metadata[field_name] ||= []) << value
+        (metadata[field_name] ||= []) << value.gsub()
       end
     end
     return metadata

@@ -35,8 +35,8 @@ class BulkOps::CreateSpreadsheetJob < ActiveJob::Base
       values.map do |value|
         next if value.is_a? DateTime 
         value = (label ? WorkIndexer.fetch_remote_label(value.id) : value.id) unless value.is_a? String
-        value.gsub("\"","\"\"").prepend('"').concat('"')
-      end.join(';')
+        value.gsub("\"","\"\"")
+      end.join(BulkOps::WorkProxy::SEPARATOR).prepend('"').concat('"')
     end.join(',')
   end
 
