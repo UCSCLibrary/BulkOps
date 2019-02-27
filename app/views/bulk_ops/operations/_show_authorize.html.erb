@@ -2,7 +2,7 @@
 <div>
     <p>This bulk <%=@operation.operation_type%> is waiting for approval before it can be applied.</p>
     <% if @operation.can_merge? %>
-        <p> You have the authority to approve this <%=@operation.type%> and apply it immediately. </p>
+        <p style="font-size:1.2em"> You have the authority to approve this <%=@operation.type%> and apply it immediately. </p>
         <%= form_tag("#{@operation.id}/approve") do %>
             <%= render "git_message" %>
             <%= submit_tag 'Approve & Apply Now'  %>

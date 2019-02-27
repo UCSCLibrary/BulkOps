@@ -9,10 +9,10 @@ jQuery(document).ready(function() {
       success : function(result) {
         // you can see the result from the console
         // tab of the developer tools
-        console.log(result);
 
         if(result["num_results"] > 0) {
-          jQuery("div#search-summary p#count").html(result["num_results"]);
+          jQuery("div#search-summary p#count").html("Total Results: "+result["num_results"]);
+          jQuery("div#search-summary").show();
           jQuery("div#search-summary div#all-results").show();
 
           //Remove all previous search fields from form
@@ -38,11 +38,11 @@ jQuery(document).ready(function() {
           newli.removeAttr("id");
           newli.children("input").val(work["id"]);
           newli.children("img").attr("src",work["thumbnail_path_ss"]);
-          newli.children("div.work-title").html(work["title_tesim"].join(", "));
+          newli.find("div.work-title").html(work["title_tesim"].join(", "));
 //          newli.children("div.work-description").html(work["description"].join(", "));
           jQuery("div#search-summary ul").append(newli);
           newli.show();
-
+          jQuery(".show-with-results").show()
         });
       },
       error: function(xhr, resp, text) {
@@ -54,8 +54,10 @@ jQuery(document).ready(function() {
   jQuery("div#search-summary #add-all-results").click(function(){
     if( jQuery(this).is(':checked')) {
       jQuery('ul#search-sample').find('input').prop('disabled',true).css("opacity:0.5")
+      jQuery("#draft-search-display button.selections").prop('disabled',true).css("opacity:0.5")
     }else{
       jQuery('ul#search-sample').find('input').prop('disabled',false).css("opacity:1")
+      jQuery("#draft-search-display button.selections").prop('disabled',false).css("opacity:1")
     }
   });
 

@@ -213,7 +213,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       values.split(SEPARATOR).each do |value|
         next if value.blank?
         value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
-        (metadata[field_name] ||= []) << value.gsub()
+        (metadata[field_name] ||= []) << value
       end
     end
     return metadata

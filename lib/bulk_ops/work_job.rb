@@ -72,7 +72,7 @@ class BulkOps::WorkJob < ActiveJob::Base
     update_status "running", "Started background task at #{DateTime.now.strftime("%d/%m/%Y %H:%M")}"
     ability = Ability.new(user)
     env = Hyrax::Actors::Environment.new(@work, ability, attributes)
-    update_status "completed", Hyrax::CurationConcern.actor.send(type,env)
+    update_status "complete", Hyrax::CurationConcern.actor.send(type,env)
   end
 
   private

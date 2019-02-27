@@ -9,6 +9,8 @@
         <% end %>
     </div>
 
+    <hr class="bulk-ops"/>
+
     <%= form_for @operation, :html => { :multipart => true } do |f| %>
         
         <div class="op-action" id="spreadsheet-input">
@@ -20,11 +22,15 @@
             <%= render "git_message" %>
             <input type=submit id="upload-spreadsheet" name="upload_spreadsheet" value="Upload" />
         </div>
+        
+        <hr class="bulk-ops"/>
 
-        <div class="op-action" id="edit-options">
+        <a class="bulk-ops-collapse-link collapsed" data-toggle="collapse" href="#edit-options" aria-expanded="false" aria-controls="edit-options">
+            Show/Hide <%= @operation.operation_type.capitalize %> Options
+        </a>
+        <div class="op-action collapse" id="edit-options" aria-expanded="false" >
+            <%= render "operation_options" %>
             <%= render "#{@operation.operation_type}_options" %>
-
-
 
             <% unless @operation.operation_type.downcase == "ingest" %>
                 <%= render "git_message" %>
@@ -34,11 +40,15 @@
 
     <% end %>
 
+    <hr class="bulk-ops"/>
+
     <%= form_tag("#{@operation.id}/destroy") do %>
         <p class="big">Cancel and delete this bulk <%=@operation.type %> completely</p>
         <%= render "git_message" %>
         <%= submit_tag("Cancel/Delete") %>
     <% end %>
+
+    <hr class="bulk-ops"/>
 
     <%= form_tag("/bulk_ops/#{@operation.id}/request_apply") do %> 
         <p class="big">Flag that the spreadsheet is ready after the final version has been uploaded and the bulk <%= @operation.operation_type %> is ready to apply. Approval from another administator may be necessary.</p>

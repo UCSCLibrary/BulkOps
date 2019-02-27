@@ -33,4 +33,6 @@ jQuery(document).ready(function() {
       jQuery('div#choose-fields').show()
     }
   });
+
+  jQuery('div.bulk-ops-options div').tooltip();
 });

@@ -1,19 +1,19 @@
-<div id="operation-options" class="collapse options-panel  bulk-ops-options">
+<div id="operation-options" class="options-panel bulk-ops-options">
 
-    <div>
-        <div class="tooltip">
-            <label>Filename Prefix</label>
-            <p class="tooltip-text">This string will be added before each filename included in the spreadsheet. Use this for a shared base directory.</p>
-        </div>
+    <div title="This string will be added before each filename included in the spreadsheet. Use this for a shared base directory." data-toggle="tooltip">
+        <label>Filename Prefix:</label>
         <input type="text" name="file_prefix" />
     </div>
 
-    <div>
-        <div class="tooltip">
-            <label>Columns to Ignore:</label>
-            <p class="tooltip-text">Any column whose header is on this list will be ignored when ingesting this spreadsheet.</p>
-        </div>
+    <div title="Any column whose header is on this list will be ignored when ingesting this spreadsheet.">
+        <label>Columns to Ignore:</label>
         <ul id="ignored-columns">
+            <li >
+                <input type="text" name="ignore[]" />
+                <button type="button" 
+                        class="remove-ignore" 
+                        onclick="jQuery(this).parent('li').remove()">X</button>
+            </li>
             <li id="template-li" style="display:none">
                 <input type="text" name="ignore[]" />
                 <button type="button" 

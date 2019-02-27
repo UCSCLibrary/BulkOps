@@ -1,11 +1,18 @@
 <h2>Edit Grouping for Bulk Update: "<%= @operation.name  %>"</h2>
 <p>Add and remove works from this group to indicate which works you want to update. The group will be saved even if you log out. Take your time and get the right group of works; it is harder to change later.</p>
-<div id="update-draft-works">
-    <%= render "update_draft_work_list"  %>
-    <%= render "update_draft_work_search"  %>
-</div>
+
+<hr class="bulk-ops">
+
+<%= render "update_draft_work_search"  %>
+
+<hr class="bulk-ops">
+
+<%= render "update_draft_work_list"  %>
+
+<hr class="bulk-ops">
 
 <%= form_tag("#{@operation.id}", method: :put, id: "finalize-draft") do %>
+    <h3>Actions</h3>
     <input type="hidden" name="operation_id" value="<%=@operation.id%>" />
     <%= render "git_message" %>
     <input type="submit" name="finalize" value="Finalize Group & Start Updating" />

@@ -1,4 +1,7 @@
-<div id="notification-options" class="bulk-ops-options">
+<a class="bulk-ops-collapse-link collapsed" data-toggle="collapse" href="#notification-options" aria-expanded="false" aria-controls="notification-options">
+    Show/Hide Notification Options
+</a>
+<div id="notification-options" class="bulk-ops-options collapse">
     <label data-toggle="tooltip" title="The people on this list will recieve email notifications when important events happen to this operation.">Notification Recipients:</label>
     <ul id="notifications"> 
         <% @notified_users.each do |user| %>
@@ -12,8 +15,8 @@
     </ul>
     <div id="add-new-notification">
         <labeldata-toggle="tooltip" title="Enter an email address here to add it to the list of notification recipients"> Add recipient email:</label>
-        <input type="text" name="add-user-notification" id="add-user-notification"/> 
-        <button type="button" id="add-user-notification" onclick="name=$(this).siblings('input#add-user-notification').val();$('<li><button class=remove_user_notification onclick=$(this).parent().remove()>Remove</button><input type=hidden name=notified-users[] value='+name+' /> '+name+'</li>').appendTo('ul#notifications')">Add</button>
+            <input type="text" name="add-user-notification" id="add-user-notification"/> 
+            <button type="button" id="add-user-notification" onclick="name=$(this).siblings('input#add-user-notification').val();$('<li><button class=remove_user_notification onclick=$(this).parent().remove()>Remove</button><input type=hidden name=notified-users[] value='+name+' /> '+name+'</li>').appendTo('ul#notifications')">Add</button>
     </div>
 </div>
 

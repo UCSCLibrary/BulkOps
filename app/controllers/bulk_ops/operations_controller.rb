@@ -139,7 +139,10 @@ module BulkOps
         @num_complete = @operation.work_proxies.where(status: 'complete').count
         @num_other = @operation.work_proxies.where.not(status: ['queued','running','failed','complete']).count
       end
-      @draft_works = @operation.work_proxies.select{|proxy| solr_doc_exists? proxy.work_id}.map{|prx| SolrDocument.find(prx.work_id)} if @operation.stage=="draft"
+      if @operation.stage=="draft"
+        @draft_work_count = @operation.work_proxies.count
+        @draft_works = @operation.work_proxies.take(10).map{|proxy| get_solr_doc(proxy.work_id)}.select{|doc| doc}
+      end
     end
 
     def update
@@ -185,13 +188,11 @@ module BulkOps
                                              admin_set_id: params['admin_set_id'],
                                              workflow_state: params['workflow_state'],
                                              keyword_query: params['q']).rows(rows)
-        puts "ROWS: #{builder.rows}"
         result = repository.search(builder)
         total = result.total
         start = 0
         while start < total
           builder.start = start
-          puts "START: #{start} : #{builder.start}"
           docs = repository.search(builder).documents
           docs.each do |doc|
             unless BulkOps::WorkProxy.find_by(operation_id: @operation.id, work_id: doc.id)
@@ -273,6 +274,8 @@ module BulkOps
 
     def request_apply
       redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      @operation.stage = "verifying"
+      @oepration.save
       BulkOps::VerificationJob.perform_later(@operation)
           flash[:notice] = "We are now running the data from your spreadsheet through an automatic verification process to anticipate any problems before we begin the ingest. This may take a few minutes. You should recieve an email when the process completes."
           redirect_to action: "show"
@@ -370,13 +373,14 @@ module BulkOps
       @notified_users = params['notified_user'].blank? ? default_notifications : params['notified_user'].map{ |user_id| User.find(user_id.to_i)}
     end
 
-    def solr_doc_exists? id
+    def get_solr_doc id
+      solr_doc = false
       begin
-        SolrDocument.find(id)
+        return solr_doc = SolrDocument.find(id)
       rescue Blacklight::Exceptions::RecordNotFound
         return false
       end
-      return true
+      return solr_doc
     end
 
     def initialize_operation
@@ -387,7 +391,7 @@ module BulkOps
         @branch_options = @branch_names.map{|branch| [branch,branch]}
         @branch_options = [["No Bulk Updates Defined",0]] if @branch_options.blank?
       elsif @operation.stage == "draft" 
-        @works = @operation.work_proxies.select{|proxy_id| solr_doc_exists? proxy_id}.map{|work_proxy| SolrDocument.find(work_proxy.work_id)}
+        @works = @operation.work_proxies.map{|proxy| get_solr_doc(proxy.work_id)}.select{|doc| doc}
         @collections = Collection.all.map{|col| [col.title.first,col.id]}
         @admin_sets = AdminSet.all.map{|aset| [aset.title.first, aset.id]}
         workflow = Sipity::Workflow.where(name:"ucsc_generic_ingest").last

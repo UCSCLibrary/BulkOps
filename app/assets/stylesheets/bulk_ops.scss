@@ -56,7 +56,31 @@ div#update-draft-works {
     
 }
 
-form#finalize-draft {clear: left;}
+
+div.github-message {
+    div#show-git-message {
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+        margin-bottom: 10px;
+    }
+    #git-message-div {
+        margin-bottom: 10px;
+    }
+}
+
+form#finalize-draft {
+    clear: left;
+    input[type=submit] {
+        margin: 10px;
+        padding: 5px;
+        font-size: 1.2em;
+        font-weight: 1.1em;
+        display: block;
+    } 
+}
+
+.show-with-results{ display:none;}
 
 div#github-auth {
     width: 160px;

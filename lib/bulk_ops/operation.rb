@@ -111,13 +111,11 @@ module BulkOps
       # make sure the work proxies we just created are loaded in memory
       reload
       #loop through the work proxies to create a job for each work
-      work_proxies.each do |proxy|
+      @metadata.each_with_index do |values,row_number|
+        proxy = work_proxies.find_by(row_number: row_number)
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
-
-        data = proxy.interpret_data @metadata[proxy.row_number] 
-        
+        data = proxy.interpret_data values 
         next unless proxy.proxy_errors.blank?
-        
         BulkOps::CreateWorkJob.perform_later(proxy.work_type || "Work",
                                              user.email,
                                              data,
@@ -252,7 +250,8 @@ module BulkOps
 
     def options
       return @options if @options
-      branch = (stage == "running") ? "master" : nil
+      branch = running? ? "master" : nil
+      puts "BULK OPS: loading options from branch: #{branch}, because we're in stage #{stage}, so running? returns #{running?}"
       @options ||= git.load_options(branch: branch)
     end
 
@@ -269,8 +268,10 @@ module BulkOps
     end
 
     def busy?
-      prxs = proxy_states
-      return true unless prxs["running"].blank? || prxs[""].blank?
+      return true if work_proxies.where(status: "running").count > 0
+      return true if work_proxies.where(status: "queued").count > 0
+      return true if work_proxies.where(status: "starting").count > 0
+      return false
     end
 
     def ingest?

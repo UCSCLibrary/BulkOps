@@ -3,7 +3,7 @@
 <% provide :page_title, "New Bulk Operations" %>
 <%= render "bulk_ops_header", title: 'Create New Bulk Ingest or Update' %>
 
-<%= form_tag "/bulk_ops" do %>
+<%= form_tag "/bulk_ops", class: "new-bulk-op", id: "new-bulk-op" do %>
 
     <div id="operation-name" class="bulk-ops-options">
         <label data-toggle="tooltip" title="Choose a short descriptive name for this bulk operation" for="bulk-ops-name">New Operation Name:</label>
@@ -12,13 +12,14 @@
 
     <div class="bulk-ops-options">
         <label for="op-type" data-toggle="tooltip" title="Would you like to set up a bulk ingest of new works, or a bulk update of existing works?">Ingest or Update?</label>
-        <select name="type"  id="op-type" onchange="$('.options-panel').hide(); $('#'+this.value+'-options').show()" >
+        <select name="type"  id="op-type" onchange="$('.bulk-ops-options.options-panel').hide();$('#operation-options').show(); $('#'+this.value+'-options').show()" >
             <option disabled selected value> -- Choose Operation Type -- </option>
             <option value="ingest">Ingest </option>
             <option value="update">Update </option>
         </select>
     </div>
 
+    <%= render "operation_options" %>
     <%= render "ingest_options" %>
     <%= render "update_options" %>
 
