@@ -35,7 +35,8 @@ module BulkOps
       end
       # delete all the works
       operation.delete_all
-      redirect_to action: "show", id: @operation.id, notice: "All works created by this ingest have been deleted from the system. Feel free to re-apply the ingest."
+      flash[:notice] = "All works created by this ingest have been deleted from the system. Feel free to re-apply the ingest."
+      redirect_to action: "show", id: @operation.id
     end
 
     def destroy_multiple
@@ -45,7 +46,10 @@ module BulkOps
     end
 
     def duplicate 
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
       case params['status_to_edit']
       when "all"
         proxies = @operation.work_proxies
@@ -77,20 +81,23 @@ module BulkOps
       new_operation.message = "New update draft created. Ready for admins to select which works to edit."
 
       new_operation.save
-
-      redirect_to action: "show", id: new_operation.id, notice: "Successfully created a new bulk update from the works involved in the previous operation."
+      
+      flash[:notice] = "Successfully created a new bulk update from the works involved in the previous operation."
+      redirect_to action: "show", id: new_operation.id
     end
 
     def create
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "index"
+      end
 
       params.require([:name,:type,:notified_users])
-      params.permit(available_options).permit(ignored_columns: [])
 
       # Create a unique operation name if the chosen name is taken
       op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
       
-      message = params['git_message'] || "This #{params['type']} is brand new, just created"
+      message = params['git_message'] || "This #{params['type']} is brand new, just created by #{current_user.email}"
 
       operation = BulkOps::Operation.create(name: op_name, 
                                             status: "new", 
@@ -118,13 +125,13 @@ module BulkOps
       operation.save
 
       #redirect to operation show page
-      redirect_to action: "show", id: operation.id, notice: "Bulk #{params['type']} created successfully"
+      flash[:notice] = "Bulk #{params['type']} created successfully"
+      redirect_to action: "show", id: operation.id
     end
 
     def new
       @default_fields = BulkOps::Operation.default_metadata_fields + ['id','collection','filename']
       @all_fields = (BulkOps::Operation.default_metadata_fields + BulkOps::Operation::SPECIAL_COLUMNS)
-
     end
 
     def show
@@ -143,8 +150,10 @@ module BulkOps
     end
 
     def update
-      
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
       
 #      params.permit(available_options).permit(ignored_columns: []).permit("edit_options")
 
@@ -178,7 +187,8 @@ module BulkOps
           puts options.inspect
 
           BulkOps::GithubAccess.update_options(@operation.name, options, message: params['git_message'])
-          redirect_to action: "show", id: @operation.id, notice: "The operation options were updated successfully"
+          flash[:notice] = "The operation options were updated successfully"
+          redirect_to action: "show", id: @operation.id
         else
           redirect_to action: "show", id: @operation.id
         end
@@ -188,7 +198,10 @@ module BulkOps
     end
 
     def finalize_draft
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
       @operation.finalize_draft
       redirect_to action: "show"
     end
@@ -285,14 +298,22 @@ module BulkOps
     end
 
     def destroy
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
+
       @operation.destroy!
       flash[:notice] = "Bulk #{@operation.type} deleted successfully"
       redirect_to action: "index"
     end
 
     def request_apply
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
+
       @operation.stage = "verifying"
       @operation.save
       BulkOps::VerificationJob.perform_later(@operation)
@@ -301,7 +322,11 @@ module BulkOps
     end
     
     def approve
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
+
       begin
         @operation.merge_pull_request @operation.pull_id, message: params['git_message']
         @operation.delete_branch
@@ -316,7 +341,11 @@ module BulkOps
     end
     
     def apply
-      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      unless @github_authenticated
+        flash[:notice] = "Please log in to github before taking this action" 
+        redirect_to action: "show", id: @operation.id
+      end
+
       parameters = JSON.parse request.raw_post
       unless parameters['action'] == 'closed' 
         render plain: "IGNORING THIS EVENT" 
@@ -366,12 +395,10 @@ module BulkOps
                            :notified_users,
                            :type,
                            :name,
-                           :git_message,
                            :work_type,
                            :file_method,
                            :visibility,
                            :reference_identifier,
-                           :include_reference_column,
                            :reference_column_name,
                            :creator_email]
     end

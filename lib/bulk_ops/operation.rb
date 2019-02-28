@@ -234,6 +234,10 @@ module BulkOps
 
         options.each { |option, value| full_options[option] = value }
 
+        full_options[name] = name
+        full_options[type] = type
+        full_options[status] = status
+        
         puts "final options:"
         puts full_options.inspect
 

@@ -130,9 +130,11 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
       # get the field name, if this column is a metadata field
       field_name = find_field_name(field)
-
       # Ignore anything that isn't a controlled field
       next unless schema["controlled"].include? field_name
+
+      
+
 
       # Keep track of label fields
       if field.downcase.ends_with?("label")
@@ -252,7 +254,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
             (metadata[:uploaded_files] ||= []) << uploaded_file.id unless uploaded_file.id.nil?
           rescue Exception => e  
             report_error(:upload_error,
-                         message: "Error opening file: #{ File.join(BulkOps::Operation::INGEST_MEDIA_PATH,filename) } -- #{e}",
+                         message: "Error opening file: #{ filepath } -- #{e}",
                          file: File.join(BulkOps::Operation::INGEST_MEDIA_PATH,filename),
                          row_number: row_number)
           end

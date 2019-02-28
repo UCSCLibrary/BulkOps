@@ -9,8 +9,6 @@
         <label>Columns to Ignore:</label>
         <ul id="ignored-columns">
             
-            <%= @operation.options.inspect %>
-
             <% (@operation.options["ignored_columns"] || []).each do |ignored_column| %>
                 <li >
                     <input type="text" name="ignored_columns[]" value="<%= ignored_column %>" />

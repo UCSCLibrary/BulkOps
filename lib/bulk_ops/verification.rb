@@ -51,7 +51,7 @@ module BulkOps
     def get_file_paths(filestring)
       return [] if filestring.blank?
       filenames = filestring.split(BulkOps::WorkProxy::SEPARATOR)
-      filenames.map { |filename| File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix || "", filename) }
+      filenames.map { |filename| File.join(BulkOps::Operation::INGEST_MEDIA_PATH, options['file_prefix'] || "", filename) }
     end
 
     def record_exists? id
