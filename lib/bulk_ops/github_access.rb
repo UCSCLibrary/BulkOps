@@ -184,6 +184,11 @@ class BulkOps::GithubAccess
     YAML.load(Base64.decode64(get_file_contents(options_path, ref: branch)))
   end
 
+  def spreadsheet_count branch: nil
+    branch ||= name
+    Base64.decode64(get_file_contents(spreadsheet_path, ref: branch)).lines.count - 1
+  end
+
   def load_metadata branch: nil, return_headers: false
     branch ||= name
     CSV.parse(Base64.decode64(get_file_contents(spreadsheet_path, ref: branch)), {headers: true, return_headers: return_headers})

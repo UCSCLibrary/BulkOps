@@ -251,6 +251,10 @@ module BulkOps
       git.load_metadata return_headers: return_headers
     end
 
+    def spreadsheet_count
+      git.spreadsheet_count
+    end
+
     def final_spreadsheet
       @metadata ||= git.load_metadata branch: "master"
     end
