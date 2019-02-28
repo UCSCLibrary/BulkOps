@@ -13,7 +13,6 @@ module BulkOps
         error_file_name = BulkOps::Error.write_errors!(@verification_errors, git)
         #notify everybody
         notify(subject: "Errors verifying bulk #{operation_type} in Hycruz", message: "Hyrax ran a verification step to make sure that the spreadsheet for this bulk #{operation_type} is formatted correctly and won't create any errors. We found some problems. You can see a summary of the issues at this url: https://github.com/#{git.repo}/blob/#{git.name}/#{git.name}/errors/#{error_file_name}. Please fix these problems and run this verification again. The bulk #{operation_type} will not be allowed to move forward until all verification issues are resolved.")
-
         return false
       end
       return true
@@ -72,7 +71,7 @@ module BulkOps
         file_fields.each do |column_name, filestring|
           next if filestring.blank? or column_name == filestring
           get_file_paths(filestring).each do |filepath|
-            file_errors << BulkOps::Error.new({type: :cannot_find_file, file: filename}) unless  File.file? filepath
+            file_errors << BulkOps::Error.new({type: :cannot_find_file, file: filepath}) unless  File.file? filepath
           end
         end
       end

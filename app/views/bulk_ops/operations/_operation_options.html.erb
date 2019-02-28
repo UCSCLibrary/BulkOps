@@ -2,20 +2,31 @@
 
     <div title="This string will be added before each filename included in the spreadsheet. Use this for a shared base directory." data-toggle="tooltip">
         <label>Filename Prefix:</label>
-        <input type="text" name="file_prefix" />
+        <input type="text" name="file_prefix"  value="<%=@operation.options["file_prefix"] || ""%>" />
     </div>
 
     <div title="Any column whose header is on this list will be ignored when ingesting this spreadsheet.">
         <label>Columns to Ignore:</label>
         <ul id="ignored-columns">
+            
+            <%= @operation.options.inspect %>
+
+            <% (@operation.options["ignored_columns"] || []).each do |ignored_column| %>
+                <li >
+                    <input type="text" name="ignored_columns[]" value="<%= ignored_column %>" />
+                    <button type="button" 
+                            class="remove-ignore" 
+                            onclick="jQuery(this).parent('li').remove()">X</button>
+                </li>
+            <% end %>
             <li >
-                <input type="text" name="ignore[]" />
+                <input type="text" name="ignored_columns[]"  />
                 <button type="button" 
                         class="remove-ignore" 
                         onclick="jQuery(this).parent('li').remove()">X</button>
             </li>
             <li id="template-li" style="display:none">
-                <input type="text" name="ignore[]" />
+                <input type="text" name="ignored_columns[]" />
                 <button type="button" 
                         class="remove-ignore" 
                         onclick="jQuery(this).parent('li').remove()">X</button>

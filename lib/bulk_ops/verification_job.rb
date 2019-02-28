@@ -16,6 +16,8 @@ class BulkOps::VerificationJob < ActiveJob::Base
         else
           operation.notify(subject: "Bulk Operation - Error creating Github pull request", message: "Your bulk ingest has passed verification, but we had a problem creating a pull request on Github in order to merge this operation with the master branch. Please check your github configuration.")
         end
+      else
+        operation.set_stage "pending"
       end
   end
 end

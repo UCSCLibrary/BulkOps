@@ -2,6 +2,7 @@
 <%= stylesheet_link_tag "bulk_ops" %>
 <% provide :page_title, "New Bulk Operations" %>
 <%= render "bulk_ops_header", title: 'Create New Bulk Ingest or Update' %>
+<%= render "bulk_ops/github_auth_widget" %>
 
 <%= form_tag "/bulk_ops", class: "new-bulk-op", id: "new-bulk-op" do %>
 

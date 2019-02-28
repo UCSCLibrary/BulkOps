@@ -31,11 +31,8 @@
         <div class="op-action collapse" id="edit-options" aria-expanded="false" >
             <%= render "operation_options" %>
             <%= render "#{@operation.operation_type}_options" %>
-
-            <% unless @operation.operation_type.downcase == "ingest" %>
-                <%= render "git_message" %>
-                <input type="submit" name ="edit_options" value="Save Changes" />
-            <% end %>
+            <%= render "git_message" %>
+            <input type="submit" name ="edit_options" value="Save Changes" />
         </div>
 
     <% end %>

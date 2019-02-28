@@ -31,11 +31,11 @@ module BulkOps
 
     def delete_all
       unless operation.type == "ingest"
-        redirect_to action: "show", id: operation.id, error: "Can only delete all works from an ingest operation, not an #{operation.type}" 
+        redirect_to action: "show", id: @operation.id, error: "Can only delete all works from an ingest operation, not an #{operation.type}" 
       end
       # delete all the works
       operation.delete_all
-      redirect_to action: "show", id: operation.id, notice: "All works created by this ingest have been deleted from the system. Feel free to re-apply the ingest."
+      redirect_to action: "show", id: @operation.id, notice: "All works created by this ingest have been deleted from the system. Feel free to re-apply the ingest."
     end
 
     def destroy_multiple
@@ -45,7 +45,7 @@ module BulkOps
     end
 
     def duplicate 
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       case params['status_to_edit']
       when "all"
         proxies = @operation.work_proxies
@@ -70,7 +70,7 @@ module BulkOps
                                                 message: message, 
                                                 user: current_user)
       
-      new_operation.create_branch fields: params['fields'],  options: updated_options
+      new_operation.create_branch fields: params['fields'],  options: filtered_options_params
       new_operation.status = "OK"
       new_operation.stage = "draft"
       new_operation.work_proxies = proxies
@@ -82,17 +82,10 @@ module BulkOps
     end
 
     def create
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
 
       params.require([:name,:type,:notified_users])
-      params.permit([:fields,
-                     :file_method,
-                     :reference_identifier,
-                     :include_reference_column,
-                     :reference_column_name,
-                     :visibility,:work_type,
-                     :file_prefix,
-                     :ignored_columns,:git_message])
+      params.permit(available_options).permit(ignored_columns: [])
 
       # Create a unique operation name if the chosen name is taken
       op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
@@ -107,7 +100,11 @@ module BulkOps
                                             user: current_user)
 
       operation.status = "OK"
-      operation.create_branch fields: params['fields'], options: updated_options, operation_type: params['type'].to_sym
+
+      puts "BULK OPS CREATING BRANCH WITH OPTIONS: #{filtered_options_params.inspect}"
+      puts "ALL PARAMS: #{params.inspect}"
+
+      operation.create_branch fields: params['fields'], options: filtered_options_params, operation_type: params['type'].to_sym
 
       case params['type']
       when "ingest"
@@ -146,7 +143,11 @@ module BulkOps
     end
 
     def update
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      
+#      params.permit(available_options).permit(ignored_columns: []).permit("edit_options")
+
       #if a new spreadsheet is uploaded, put it in github
       if params['spreadsheet'] && @operation.name
         @operation.update_spreadsheet params['spreadsheet'], message: params['git_message']
@@ -155,21 +156,39 @@ module BulkOps
       end
 
       #If new options have been defined, update them in github
-      if params["options"] && @operation.name
-        options = @operation.options
-        params["options"].each do |option_name, option_value|
-          options[options_name] = option_value
-        end
-        BulkOps::GithubAccess.update_options(@operation.name, options, message: params['git_message'])
-      end  
+      if params['edit_options']
+        if filtered_options_params && @operation.name
 
+          options = @operation.options
+
+          puts "BULKOPS UPDATING OPTIONS"
+          puts "all params: #{params.inspect}"
+          puts "Updating bulk_ops options"
+          puts "new options:"
+          puts filtered_options_params.inspect
+          puts "old options:"
+          puts options.inspect
+
+
+          filtered_options_params.each do |option_name, option_value|
+            options[option_name] = option_value
+          end
+
+          puts "final options:"
+          puts options.inspect
+
+          BulkOps::GithubAccess.update_options(@operation.name, options, message: params['git_message'])
+          redirect_to action: "show", id: @operation.id, notice: "The operation options were updated successfully"
+        else
+          redirect_to action: "show", id: @operation.id
+        end
+      end
       destroy if params["destroy"]
       finalize_draft if params["finalize"]
-
     end
 
     def finalize_draft
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       @operation.finalize_draft
       redirect_to action: "show"
     end
@@ -266,23 +285,23 @@ module BulkOps
     end
 
     def destroy
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       @operation.destroy!
       flash[:notice] = "Bulk #{@operation.type} deleted successfully"
       redirect_to action: "index"
     end
 
     def request_apply
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       @operation.stage = "verifying"
-      @oepration.save
+      @operation.save
       BulkOps::VerificationJob.perform_later(@operation)
           flash[:notice] = "We are now running the data from your spreadsheet through an automatic verification process to anticipate any problems before we begin the ingest. This may take a few minutes. You should recieve an email when the process completes."
           redirect_to action: "show"
     end
     
     def approve
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       begin
         @operation.merge_pull_request @operation.pull_id, message: params['git_message']
         @operation.delete_branch
@@ -297,7 +316,7 @@ module BulkOps
     end
     
     def apply
-      redirect_to action: "show", id: operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
+      redirect_to action: "show", id: @operation.id, notice: "Please log in to github before taking this action" unless @github_authenticated
       parameters = JSON.parse request.raw_post
       unless parameters['action'] == 'closed' 
         render plain: "IGNORING THIS EVENT" 
@@ -338,21 +357,28 @@ module BulkOps
       return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.headers['X-HUB-SIGNATURE'])
     end
 
-    def updated_options
-      #todo: this method is poorly named
-      available_options = [:notifications,
+    def available_options
+      available_options = [:name,
+                           :fields,
+                           :file_prefix,
+                           :ignored_columns, 
+                           :complex_objects, 
+                           :notified_users,
                            :type,
+                           :name,
+                           :git_message,
                            :work_type,
                            :file_method,
                            :visibility,
-                           :filename_prefix,
-                           :ignore,
                            :reference_identifier,
                            :include_reference_column,
                            :reference_column_name,
                            :creator_email]
+    end
+
+    def filtered_options_params
       #TODO Verify work_types, visibilities,filename_prefixes,etc
-      params.select{|key, value| available_options.include?(key)}
+      params.permit(*available_options, ignored_columns: [])
     end
 
     def initialize_options

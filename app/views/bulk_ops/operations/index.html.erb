@@ -14,6 +14,9 @@
     </div>
 
     <ul id="operations-index">
+        <% if @active_operations.empty? %>
+            No bulk operations have been created yet.
+        <% end %>
         <% @active_operations.each do |operation| %>
             <li>
                 <input type="checkbox" name="operation_ids[]" class="bulk-ops-index-checkbox" value="<%= operation.id %>" />

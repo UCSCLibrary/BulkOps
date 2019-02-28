@@ -97,7 +97,7 @@ class BulkOps::GithubAccess
   end
   
   def self.update_options name, options, message: false
-    self.new(name).update_options options, message=false
+    self.new(name).update_options options, message: message
   end
 
   def self.list_branches
@@ -167,6 +167,13 @@ class BulkOps::GithubAccess
   end
 
   def update_options options, message: false
+    if options['reference_column_name']
+      (options['ignored_columns'] ||= []) << options['reference_column_name']
+      (options['reference_identifier'] ||= []) << options['reference_column_name']
+    end
+
+    options['ignored_columns'] =  options['ignored_columns'].reject { |c| c.empty? }
+
     message ||= "updating metadata spreadsheet through hyrax browser interface."
     sha = get_file_sha(options_path)
     client.update_contents(repo, options_path, message, sha, YAML.dump(options), branch: name)

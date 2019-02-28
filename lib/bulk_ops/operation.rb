@@ -225,7 +225,18 @@ module BulkOps
       #update configuration options 
       unless options.blank?
         full_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
+
+        puts "Creating new bulk_ops options"
+        puts "new options:"
+        puts options.inspect
+        puts "standard options:"
+        puts full_options.inspect
+
         options.each { |option, value| full_options[option] = value }
+
+        puts "final options:"
+        puts full_options.inspect
+
         git.update_options full_options
       end
 
@@ -249,6 +260,7 @@ module BulkOps
     end
 
     def options
+      return {} if name.nil?
       return @options if @options
       branch = running? ? "master" : nil
       puts "BULK OPS: loading options from branch: #{branch}, because we're in stage #{stage}, so running? returns #{running?}"
