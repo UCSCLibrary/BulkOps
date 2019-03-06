@@ -9,7 +9,7 @@ module BulkOps
     before_action :initialize_options, only: [:new,:show,:edit, :update]
     before_action :initialize_operation, only: [:edit, :destroy, :show, :request_apply, :approve, :csv, :errors, :log, :update, :request, :duplicate]
 
-    layout 'dashboard'
+    layout 'hyrax/dashboard'
     attr_accessor :git
 
     helper :hyrax
