@@ -5,7 +5,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   REFERENCE_IDENTIFIER_FIELDS = ['Reference Identifier','ref_id','Reference ID','Relationship ID','Relationship Identifier','Reference Identifier Type','Reference ID Type','Ref ID Type','relationship_identifier_type','relationship_id_type']
   FILE_FIELDS = ['file','files','filename','filenames']
   FILE_ACTIONS = ['add','upload','remove','delete']
-  SEPARATOR = ';;'
+  SEPARATOR = ';'
   self.table_name = "bulk_ops_work_proxies"
   belongs_to :operation, class_name: "BulkOps::Operation", foreign_key: "operation_id"
   has_many :relationships, class_name: "BulkOps::Relationship"
@@ -105,6 +105,12 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     str[0].downcase + str[1..-1]
   end
 
+  def split_values value_string
+    # Split values on all un-escaped separator character (escape character is '\')
+    # Then replace all escaped separator charactors with un-escaped versions
+    value_string.split(/(?<!\\)#{SEPARATOR}/).map{|val| val.gsub("\\#{SEPARATOR}",SEPARATOR)}
+  end
+
   def interpret_controlled_fields raw_data
     
     # The labels array tracks the contents of columns marked as labels,
@@ -133,21 +139,19 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       # Ignore anything that isn't a controlled field
       next unless schema["controlled"].include? field_name
 
-      
-
-
       # Keep track of label fields
       if field.downcase.ends_with?("label")
         next if operation.options["ignore_labels"]  
         labels[field_name] ||= []
-        labels[field_name] += value.split(SEPARATOR) 
+.split().map{|title| title.gsub('\;',';')}
+        labels[field_name] += split_values value
         next unless operation.options["import_labels"]
       end
 
       remove = field.downcase.starts_with?("remove") || field.downcase.starts_with?("delete")
       
       # handle multiple values
-      value.split(SEPARATOR).each do |value|
+      split_values(value).each do |value|
         
         # Decide of we're dealing with a label or url
         # It's an ID if it's a URL and the name doesn't end in 'label'
@@ -430,17 +434,21 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   end
 
   def record_exists?
-    operation.record_exists?
+    operation.record_exists? work_id
   end
 
   def get_removed_filesets(filestring)
-    file_ids = filestring.split(BulkOps::WorkProxy::SEPARATOR)
-    file_ids.map do |file_id| 
+    file_ids = split_values(filestring)
+    file_ids.select{|file_id| record_exists?(file_id)}
+
+# This part handles filenames in addition to file ids. It doesn't work yet!
+#    file_ids.map do |file_id| 
       # If the filename is the id of an existing record, keep that
-      next(file_id) if (record_exists?(file_id))
+#      next(file_id) if (record_exists?(file_id))
       # If this is the label (i.e.filename) of an existing fileset, use that fileset id
-      next(filename) if (record_exists?(filename))
-      File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix, filename)
+      # TODO MAKE THIS WORK!!
+#      next(filename) if (filename_exists?(filename))
+#      File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix, filename)
     end
   end
 
