@@ -3,7 +3,7 @@ module BulkOps
   class Operation < ActiveRecord::Base
     self.table_name = "bulk_ops_operations"
     belongs_to :user
-    has_many :work_proxies, class_name: "BulkOps::WorkProxy"
+    has_many :work_proxies, class_name: "::BulkOps::WorkProxy"
 
     include BulkOps::Verification
 
