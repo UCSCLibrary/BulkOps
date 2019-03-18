@@ -449,7 +449,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       # TODO MAKE THIS WORK!!
 #      next(filename) if (filename_exists?(filename))
 #      File.join(BulkOps::Operation::INGEST_MEDIA_PATH, filename_prefix, filename)
-    end
+#    end
   end
 
   def delete_file_set fileset_id
