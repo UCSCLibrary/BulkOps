@@ -172,7 +172,7 @@ class BulkOps::GithubAccess
       (options['reference_identifier'] ||= []) << options['reference_column_name']
     end
 
-    options['ignored_columns'] =  options['ignored_columns'].reject { |c| c.empty? }
+    options['ignored_columns'] =  options['ignored_columns'].reject { |c| c.empty? } if options['ignored_columns'].present?
 
     message ||= "updating metadata spreadsheet through hyrax browser interface."
     sha = get_file_sha(options_path)
@@ -265,10 +265,10 @@ class BulkOps::GithubAccess
   def client
     return @client if @client
     return default_client if @user.nil?
-    return false unless (cred = BulkOps::GithubCredential.find_by(user_id: @user.id))
-    return false unless (token = cred.oauth_token)
+    return default_client unless (cred = BulkOps::GithubCredential.find_by(user_id: @user.id))
+    return default_client unless (token = cred.oauth_token)
     client ||= Octokit::Client.new(access_token: token)
-    return false unless client.user[:login].is_a? String
+    return default_client unless client.user[:login].is_a? String
     @client = client
   end
 
