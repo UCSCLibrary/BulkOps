@@ -65,8 +65,12 @@ module BulkOps
       operation_type
     end
 
+    def self.schema
+      ScoobySnacks::METADATA_SCHEMA
+    end
+
     def schema
-      ScoobySnacks::METADATA_SCHEMA["work_types"][work_type.downcase]
+      self.class.schema
     end
 
     def work_type
@@ -97,7 +101,7 @@ module BulkOps
     end
 
     def apply_ingest! 
-      #destroy any existing work proxies (which should not exist for an ingest). Create new proxies from finalized spreadsheet only.
+      #Destroy any existing work proxies (which should not exist for an ingest). Create new proxies from finalized spreadsheet only.
       work_proxies.each{|proxy| proxy.destroy!}
 
       #create a work proxy for each row in the spreadsheet
@@ -271,7 +275,6 @@ module BulkOps
       return {} if name.nil?
       return @options if @options
       branch = running? ? "master" : nil
-      puts "BULK OPS: loading options from branch: #{branch}, because we're in stage #{stage}, so running? returns #{running?}"
       @options ||= git.load_options(branch: branch)
     end
 
@@ -313,13 +316,12 @@ module BulkOps
 
     def self.default_metadata_fields(labels = true)
       #returns full set of metadata parameters from ScoobySnacks to include in ingest template spreadsheet    
-      fields = []
-      #    ScoobySnacks::METADATA_SCHEMA.fields.each do |field_name,field|
-      ScoobySnacks::METADATA_SCHEMA['work_types']['work']['properties'].each do |field_name,field|
-        fields << field_name
-        fields << "#{field_name} Label" if labels && field["controlled"]
+      field_names = []
+      schema.all_fields.each do |field|
+        field_names << field.name
+        field_names << "#{field.name} Label" if labels && field.controlled?
       end
-      return fields
+      return field_names
     end
 
     def ignored_fields
