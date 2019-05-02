@@ -1,4 +1,5 @@
 class BulkOps::WorkProxy < ActiveRecord::Base
+
   require 'uri'
   OPTION_FIELDS = ['visibility','work type']
   RELATIONSHIP_FIELDS = ['parent','child','collection','next','order']
@@ -40,12 +41,14 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   end
 
   def interpret_data raw_data
-    metadata = {}
+    admin_set = AdminSet.where(title: "Bulk Ingest Set").first || AdminSet.find(AdminSet.find_or_create_default_admin_set_id)
+    metadata = {admin_set_id: admin_set.id}
     metadata.merge! interpret_file_fields(raw_data)
     metadata.merge! interpret_controlled_fields(raw_data)
     metadata.merge! interpret_scalar_fields(raw_data)
     metadata.merge! interpret_relationship_fields(raw_data )
     metadata.merge! interpret_option_fields(raw_data)
+    metadata = setAdminSet(metadata)
     return metadata
   end
 
@@ -80,7 +83,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     col = find_collection(collection)
     return col if col
     return false if collection.to_i > 0
-    col = Collection.create(title: [collection.to_s])
+    col = Collection.create(title: [collection.to_s], depositor: operation.user.email, collection_type: Hyrax::CollectionType.all.first)
   end
 
   def get_remote_id(value, authority: nil, property: nil)
@@ -93,7 +96,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   end
 
   def schema
-    ScoobySnacks::METADATA_SCHEMA["work_types"][work_type.downcase]
+    ScoobySnacks::METADATA_SCHEMA
   end
 
   def find_field_name(field)
@@ -120,64 +123,65 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     # This hash is populated with relevant data as we loop through the fields
     controlled_data = {}
 
-    raw_data.each do |field, value| 
-      next if value.blank?  or field.blank?
-      field = field.to_s
+    raw_data.each do |field_name, value| 
+      next if value.blank?  or field_name.blank?
+      field_name = field_name.to_s
 
       #If our CSV interpreter is feeding us the headers as a line, ignore it.
-      next if field == value
+      next if field_name == value
 
       #check if they are using the 'field_name.authority' syntax
       authority = nil
-      if ((split=field.split('.')).count == 2)
+      if ((split=field_name.split('.')).count == 2)
         authority = split.last 
-        field = split.first
+        field_name = split.first
       end
 
       # get the field name, if this column is a metadata field
-      field_name = find_field_name(field)
+      field_name_norm = find_field_name(field_name)
+      field = schema.get_field(field_name_norm)
+
       # Ignore anything that isn't a controlled field
-      next unless schema["controlled"].include? field_name
+      next unless field.present? && field.controlled?
 
       # Keep track of label fields
-      if field.downcase.ends_with?("label")
+      if field_name.downcase.ends_with?("label")
         next if operation.options["ignore_labels"]  
-        labels[field_name] ||= []
-.split().map{|title| title.gsub('\;',';')}
-        labels[field_name] += split_values value
+        labels[field_name_norm] ||= []
+        labels[field_name_norm] += split_values value
         next unless operation.options["import_labels"]
       end
 
-      remove = field.downcase.starts_with?("remove") || field.downcase.starts_with?("delete")
+      remove = field_name.downcase.starts_with?("remove") || field_name.downcase.starts_with?("delete")
       
       # handle multiple values
       split_values(value).each do |value|
         
         # Decide of we're dealing with a label or url
         # It's an ID if it's a URL and the name doesn't end in 'label'
-        if value =~ /^#{URI::regexp}$/ and !field.downcase.ends_with?("label")
+        if value =~ /^#{URI::regexp}$/ and !field_name.downcase.ends_with?("label")
           id = value
           label = WorkIndexer.fetch_remote_label(value)
           error_message =  "cannot fetch remote label for url: #{value}"
           report_error( :cannot_retrieve_label , error_message, url: value, row_number: row_number) unless label
         else
           # It's a label, so get the id
-          id = get_remote_id(value, property: field_name, authority: authority) || localAuthUrl(field_name, value)
+          id = get_remote_id(value, property: field_name_norm, authority: authority) || localAuthUrl(field_name_norm, value)
           label = value
           report_error(:cannot_retrieve_url, 
                        message: "cannot find or create url for controlled vocabulary label: #{value}", 
                        url: value, 
                        row_number: row_number) unless id
         end
-        (controlled_data[field_name] ||= []) << {id: id, label: label, remove: field.downcase.starts_with?("remove")}
+        (controlled_data[field_name_norm] ||= []) << {id: id, label: label, remove: field_name.downcase.starts_with?("remove")}
       end
     end
     
     #delete any duplicates (if someone listed a url and also its label, or the same url twice)
-    controlled_data.each{|field, values| controlled_data[field] = values.uniq }
+    controlled_data.each{|field_name, values| controlled_data[field_name] = values.uniq }
     
     if operation.options["compare_labels"]
-      controlled_data.each do |field,values|
+      controlled_data.each do |field_name,values|
         unless labels['field'].count == values.count
           report_error(:mismatched_auth_terms, 
                        message: "Different numbers of labels and ids for #{field}",
@@ -214,8 +218,9 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       next if values.blank? or field.nil? or field == values
       # get the field name, if this column is a metadata field
       next unless field_name = find_field_name(field.to_s)
+      field = schema.get_field(field_name)
       # Ignore controlled fields
-      next if schema["controlled"].include? field_name
+      next if field.controlled?
       values.split(SEPARATOR).each do |value|
         next if value.blank?
         value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
@@ -346,8 +351,11 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
   def format_reference_id(value)
     return value if value=="id"
+    # normalize the value string
     value_method = value.titleize.gsub(/[-_\s]/,'').downcase_first_letter
-    return value_method if (schema["properties"].keys.include?(value_method) || SolrDocument.new.respond_to?(value_method))
+    # if this is a valid metadata property or solr parameter, return it as-is
+    return value_method if (schema.get_field?(value_method) || SolrDocument.new.respond_to?(value_method))
+    # if it is means to reference a row number, return the string "row"
     case value.downcase.parameterize.gsub(/[_\s-]/,'')
     when "row", "rownum","row number"
       return "row"
@@ -402,14 +410,13 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return "https://digitalcollections.library.ucsc.edu/authorities/show/local/#{auth_name}/#{id}"
   end
 
-  def getLocalAuth(property)
+  def getLocalAuth(field_name)
+    field =  schema.get_property(field_name)
     # There is only ever one local authority per field, so just pick the first you find
-    if vocs = schema["properties"][property]["vocabularies"]
+    if vocs = field.vocabularies
       vocs.each do |voc|
         return voc["subauthority"] if voc["authority"].downcase == "local"
       end
-    elsif voc = schema["properties"][property]["vocabulary"]
-      return voc["subauthority"] if voc["authority"].downcase == "local"
     end
     return nil
   end

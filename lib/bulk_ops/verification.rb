@@ -41,7 +41,7 @@ module BulkOps
       name.gsub!(/[_\s-]?[lL]abel$/,'')
       name.gsub!(/^[rR]emove[_\s-]?/,'')
       name.gsub!(/^[dD]elete[_\s-]?/,'')
-      possible_fields = Work.attribute_names + schema['properties'].keys
+      possible_fields = Work.attribute_names + schema.all_field_names
       matching_fields = possible_fields.select{|pfield| pfield.gsub(/[_\s-]/,'').parameterize == name.gsub(/[_\s-]/,'').parameterize }
       return false if matching_fields.blank?
       #      raise Exception "Ambiguous metadata fields!" if matching_fields.uniq.count > 1
@@ -127,11 +127,11 @@ module BulkOps
 
     def verify_remote_urls
       get_spreadsheet.each do |row, row_num|
-        schema["controlled"].each do |controlled_field|
-          next unless (url = row[controlled_field])
+        schema.controlled_field_names.each do |controlled_field_name|
+          next unless (url = row[controlled_field_name])
           label = ::WorkIndexer.fetch_remote_label(url)        
           if !label || label.blank?
-            @verification_errors << BulkOps::Error.new({type: :cannot_retrieve_label, row: row_num + ROW_OFFSET, field: controlled_field, url: url})
+            @verification_errors << BulkOps::Error.new({type: :cannot_retrieve_label, row: row_num + ROW_OFFSET, field: controlled_field_name, url: url})
           end
         end
       end
