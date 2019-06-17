@@ -111,7 +111,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   def split_values value_string
     # Split values on all un-escaped separator character (escape character is '\')
     # Then replace all escaped separator charactors with un-escaped versions
-    value_string.split(/(?<!\\)#{SEPARATOR}/).map{|val| val.gsub("\\#{SEPARATOR}",SEPARATOR)}
+    value_string.split(/(?<!\\)#{SEPARATOR}/).map{|val| val.gsub("\\#{SEPARATOR}",SEPARATOR).strip}
   end
 
   def interpret_controlled_fields raw_data
@@ -154,11 +154,14 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
       remove = field_name.downcase.starts_with?("remove") || field_name.downcase.starts_with?("delete")
       
+
       # handle multiple values
-      split_values(value).each do |value|
-        
+      value_array = split_values(value)
+      controlled_data[field_name_norm] ||= [] unless value_array.blank?
+      value_array.each do |value|
         # Decide of we're dealing with a label or url
         # It's an ID if it's a URL and the name doesn't end in 'label'
+        value.strip!
         if value =~ /^#{URI::regexp}$/ and !field_name.downcase.ends_with?("label")
           id = value
           label = WorkIndexer.fetch_remote_label(value)
@@ -173,37 +176,21 @@ class BulkOps::WorkProxy < ActiveRecord::Base
                        url: value, 
                        row_number: row_number) unless id
         end
-        (controlled_data[field_name_norm] ||= []) << {id: id, label: label, remove: field_name.downcase.starts_with?("remove")}
+        controlled_data[field_name_norm] << {id: id, label: label, remove: field_name.downcase.starts_with?("remove")}
       end
     end
     
     #delete any duplicates (if someone listed a url and also its label, or the same url twice)
     controlled_data.each{|field_name, values| controlled_data[field_name] = values.uniq }
-    
-    if operation.options["compare_labels"]
-      controlled_data.each do |field_name,values|
-        unless labels['field'].count == values.count
-          report_error(:mismatched_auth_terms, 
-                       message: "Different numbers of labels and ids for #{field}",
-                       row_number: row_number) 
-        end
-      end
-      labels['field'].each do |label| 
-        next if controlled_data.any?{|dt| dt["label"] == label}
-        report_error(:mismatched_auth_terms, 
-                     message: "There are controlled vocab term labels that no provided URL resolves to, in the field #{field}.",
-                     row_number: row_number) 
-      end
-    end
-    
+        
     # Actually add all the data
     metadata = {}
     leftover_data = raw_data.dup.to_hash
     controlled_data.each do |property_name, data|
+      metadata["#{property_name}_attributes"] ||= [] unless data.blank?
       data.each do |datum| 
         atts = {"id" => datum[:id]}
         atts["_delete"] = true if datum[:remove]
-        metadata["#{property_name}_attributes"] ||= []
         metadata["#{property_name}_attributes"] << atts
         leftover_data.except! property_name
       end
@@ -382,7 +369,8 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     end
   end
 
-  def mintLocalAuthUrl(auth_name, value) 
+  def mintLocalAuthUrl(auth_name, value)
+    value.strip!
     id = value.parameterize
     auth = Qa::LocalAuthority.find_or_create_by(name: auth_name)
     entry = Qa::LocalAuthorityEntry.create(local_authority: auth,
@@ -392,22 +380,25 @@ class BulkOps::WorkProxy < ActiveRecord::Base
   end
 
   def findAuthUrl(auth, value)
+    value.strip!
     return nil if auth.nil?
     return nil unless (entries = Qa::Authorities::Local.subauthority_for(auth).search(value))
     entries.each do |entry|
       #require exact match
-      if entry["label"] == value
-        url = entry["url"]
-        url ||= entry["id"]
-        url = localIdToUrl(url,auth) unless url =~ URI::regexp
-        return url
-      end
+      next unless entry["label"] == value
+      url = entry["url"]
+      url ||= entry["id"]
+      url = localIdToUrl(url,auth) unless url =~ URI::regexp
+      return url
     end
     return nil
   end
 
   def localIdToUrl(id,auth_name) 
-    return "https://digitalcollections.library.ucsc.edu/authorities/show/local/#{auth_name}/#{id}"
+    hostname = Socket.gethostname
+    hostname = "localhost" unless hostname.include?(',')
+    protocol = (Rails.env == "production") ? "https" : "http"
+    return "#{protocol}://#{hostname}/authorities/show/local/#{auth_name}/#{id}"
   end
 
   def getLocalAuth(field_name)
