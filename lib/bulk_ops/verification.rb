@@ -4,9 +4,13 @@ module BulkOps
     
     def verify
       @verification_errors ||= []
+      update(message: "verifying spreadsheet column headers")
       verify_column_headers
+      update(message: "verifying controlled vocab urls (starting)")
       verify_remote_urls
+      update(message: "verifying complex object structures")
       verify_internal_references
+      update(message: "verifying that all files exist")
       verify_files
       verify_works_to_update if operation_type.to_s == "update"
       unless @verification_errors.blank?
@@ -29,6 +33,7 @@ module BulkOps
 
     def is_file_field?(fieldname)
       return false if fieldname.blank?
+      return false if schema.get_field(fieldname)
       field_parts = fieldname.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
       return false unless field_parts.any?{ |field_type| BulkOps::WorkProxy::FILE_FIELDS.include?(field_type) }
       return "remove" if field_parts.any?{ |field_type| ['remove','delete'].include?(field_type) }
@@ -126,12 +131,18 @@ module BulkOps
     end
 
     def verify_remote_urls
-      get_spreadsheet.each do |row, row_num|
+      row_offset = BulkOps::GithubAccess::ROW_OFFSET.present? ? BulkOps::GithubAccess::ROW_OFFSET : 2
+      get_spreadsheet.each_with_index do |row, row_num|
+        update(message: "verifying controlled vocab urls (row number #{row_num})")
+        next if row_num.nil?
         schema.controlled_field_names.each do |controlled_field_name|
-          next unless (url = row[controlled_field_name])
-          label = ::WorkIndexer.fetch_remote_label(url)        
-          if !label || label.blank?
-            @verification_errors << BulkOps::Error.new({type: :cannot_retrieve_label, row: row_num + ROW_OFFSET, field: controlled_field_name, url: url})
+          next unless (urls = row[controlled_field_name])
+          urls.split(';').each do |url|
+            label = ::WorkIndexer.fetch_remote_label(url)
+            # if we can't get the label, and we aren't going to add a local label, throw an error
+            if (!label || label.blank?) && !schema.get_field(controlled_field_name).vocabularies.any?{|vocab| vocab["authority"].to_s.downcase == "local"}
+                @verification_errors << BulkOps::Error.new({type: :cannot_retrieve_label, row_number: row_num + row_offset, field: controlled_field_name, url: url})
+            end
           end
         end
       end
@@ -147,7 +158,6 @@ module BulkOps
         # TODO implement solr search 
       end
     end
-
 
     def verify_works_to_update
       return [] unless operation_type == "update"
