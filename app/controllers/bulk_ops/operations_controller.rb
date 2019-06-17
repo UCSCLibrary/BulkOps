@@ -316,7 +316,7 @@ module BulkOps
 
       @operation.stage = "verifying"
       @operation.save
-      BulkOps::VerificationJob.perform_later(@operation)
+      BulkOps::VerificationJob.perform_later(@operation.id)
       flash[:notice] = "We are now running the data from your spreadsheet through an automatic verification process to anticipate any problems before we begin the ingest. This may take a few minutes. You should recieve an email when the process completes."
       redirect_to action: "show"
     end
