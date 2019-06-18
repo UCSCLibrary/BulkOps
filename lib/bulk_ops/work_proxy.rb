@@ -83,7 +83,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     col = find_collection(collection)
     return col if col
     return false if collection.to_i > 0
-    col = Collection.create(title: [collection.to_s], depositor: operation.user.email, collection_type: Hyrax::CollectionType.all.first)
+    col = Collection.create(title: [collection.to_s], depositor: operation.user.email, collection_type: Hyrax::CollectionType.find_by(title:"User Collection"))
   end
 
   def get_remote_id(value, authority: nil, property: nil)
@@ -396,7 +396,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
   def localIdToUrl(id,auth_name) 
     hostname = Socket.gethostname
-    hostname = "localhost" unless hostname.include?(',')
+    hostname = "localhost" unless hostname.include?('.')
     protocol = (Rails.env == "production") ? "https" : "http"
     return "#{protocol}://#{hostname}/authorities/show/local/#{auth_name}/#{id}"
   end
