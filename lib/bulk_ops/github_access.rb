@@ -139,7 +139,6 @@ class BulkOps::GithubAccess
       client.update_contents(repo, file_name, message, sha, contents, branch: name)
     end
   end
-
   def add_new_spreadsheet file, message=false
     if file.is_a? Tempfile
       file.close
@@ -231,9 +230,10 @@ class BulkOps::GithubAccess
     client.contents(repo, path: filename, ref: name)
   end
 
-  def get_file_contents filename, ref: nil
+  def get_file_contents path, ref: nil
     ref ||= name
-    client.contents(repo, path: filename, ref: ref)[:content]
+    sha = client.contents(repo, path: File.dirname(path), ref: ref).select{|file| file[:name]==File.basename(path)}.first[:sha]
+    Octokit.blob(github_config["repo"], sha)[:content]
   end
 
   def get_file_sha filename
