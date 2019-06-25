@@ -230,14 +230,13 @@ class BulkOps::GithubAccess
     client.contents(repo, path: filename, ref: name)
   end
 
-  def get_file_contents path, ref: nil
-    ref ||= name
-    sha = client.contents(repo, path: File.dirname(path), ref: ref).select{|file| file[:name]==File.basename(path)}.first[:sha]
-    Octokit.blob(github_config["repo"], sha)[:content]
+  def get_file_contents(path, ref: nil)
+    client.blob(github_config["repo"], get_file_sha(path, ref: ref))[:content]
   end
 
-  def get_file_sha filename
-    client.contents(repo, path: filename, ref: name)[:sha]
+  def get_file_sha path, ref: nil
+    ref ||= name
+    client.contents(repo, path: File.dirname(path), ref: ref).select{|file| file[:name]==File.basename(path)}.first[:sha]
   end
 
   def repo
