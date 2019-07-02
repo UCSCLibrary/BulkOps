@@ -44,8 +44,9 @@ class BulkOps::WorkJob < ActiveJob::Base
     @work_proxy.operation.check_if_finished
   end
 
-  def perform(workClass,user_email,attributes,work_proxy_id,visibility="private")
+  def perform(workClass,user_email,attributes,work_proxy_id,visibility=nil)
     update_status "starting", "Initializing the job"
+    attributes['visibility']= visibility if visibility.present?
     @work_proxy = BulkOps::WorkProxy.find(work_proxy_id)
     unless @work_proxy
       report_error("Cannot find work proxy with id: #{work_proxy_id}") 
@@ -61,7 +62,7 @@ class BulkOps::WorkJob < ActiveJob::Base
         return
       end
     else # The work is not found in Solr. If we're trying to update a work, we're in trouble.
-      if (type == "update")
+      if (type.to_s == "update")
         report_error "Could not find work to update with id: #{@work_proxy.work_id}" 
         return
       end
