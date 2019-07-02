@@ -110,6 +110,7 @@ module BulkOps
         work_proxies.create(status: "queued",
                             last_event: DateTime.now,
                             row_number: row_number,
+                            visibility: options['visibility'],
                             message: "created during ingest initiated by #{user.name || user.email}")
       end
       # make sure the work proxies we just created are loaded in memory
@@ -124,7 +125,7 @@ module BulkOps
                                              user.email,
                                              data,
                                              proxy.id,
-                                             proxy.visibility || "open")
+                                             proxy.visibility)
       end
       # If any errors have occurred, make sure they are logged in github and users are notified.
       report_errors!
@@ -191,7 +192,7 @@ module BulkOps
                                              user.email,
                                              data,
                                              proxy.id,
-                                             proxy.visibility || "private")
+                                             proxy.visibility)
       end
       report_errors! 
     end
@@ -230,20 +231,11 @@ module BulkOps
       unless options.blank?
         full_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
 
-        puts "Creating new bulk_ops options"
-        puts "new options:"
-        puts options.inspect
-        puts "standard options:"
-        puts full_options.inspect
-
         options.each { |option, value| full_options[option] = value }
 
         full_options[name] = name
         full_options[type] = type
         full_options[status] = status
-        
-        puts "final options:"
-        puts full_options.inspect
 
         git.update_options full_options
       end
@@ -267,8 +259,8 @@ module BulkOps
       git.update_spreadsheet(file, message: message)
     end
 
-    def update_options filename, message=nil
-      git.update_options(filename, message: message)
+    def update_options options, message=nil
+      git.update_options(options, message: message)
     end
 
     def options
