@@ -154,7 +154,6 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
       remove = field_name.downcase.starts_with?("remove") || field_name.downcase.starts_with?("delete")
       
-
       # handle multiple values
       value_array = split_values(value)
       controlled_data[field_name_norm] ||= [] unless value_array.blank?
@@ -164,13 +163,13 @@ class BulkOps::WorkProxy < ActiveRecord::Base
         value.strip!
         if value =~ /^#{URI::regexp}$/ and !field_name.downcase.ends_with?("label")
           id = value
-          label = WorkIndexer.fetch_remote_label(value)
-          error_message =  "cannot fetch remote label for url: #{value}"
-          report_error( :cannot_retrieve_label , error_message, url: value, row_number: row_number) unless label
+#          label = WorkIndexer.fetch_remote_label(value)
+#          error_message =  "cannot fetch remote label for url: #{value}"
+#          report_error( :cannot_retrieve_label , error_message, url: value, row_number: row_number) unless label
         else
           # It's a label, so get the id
           id = get_remote_id(value, property: field_name_norm, authority: authority) || localAuthUrl(field_name_norm, value)
-          label = value
+#          label = value
           report_error(:cannot_retrieve_url, 
                        message: "cannot find or create url for controlled vocabulary label: #{value}", 
                        url: value, 
@@ -385,20 +384,21 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return nil unless (entries = Qa::Authorities::Local.subauthority_for(auth).search(value))
     entries.each do |entry|
       #require exact match
-      next unless entry["label"] == value
+      next unless entry["label"].encode('UTF-8') == value.encode('UTF-8')
       url = entry["url"]
       url ||= entry["id"]
-      url = localIdToUrl(url,auth) unless url =~ URI::regexp
+#      url = localIdToUrl(url,auth) unless url =~ URI::regexp
       return url
     end
     return nil
   end
 
   def localIdToUrl(id,auth_name) 
-    hostname = Socket.gethostname
-    hostname = "localhost" unless hostname.include?('.')
-    protocol = (Rails.env == "production") ? "https" : "http"
-    return "#{protocol}://#{hostname}/authorities/show/local/#{auth_name}/#{id}"
+    root_urls = {production: "https://digitalcollections.library.ucsc.edu",
+                 staging: "http://digitalcollections-staging.library.ucsc.edu",
+                 development: "http://#{Socket.gethostname}",
+                 test: "http://#{Socket.gethostname}"}
+    return "#{root_urls[Rails.env.to_sym]}/authorities/show/local/#{auth_name}/#{id}"
   end
 
   def getLocalAuth(field_name)
