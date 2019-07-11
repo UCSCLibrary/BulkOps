@@ -9,7 +9,7 @@ class BulkOps::WorkJob < ActiveJob::Base
   after_perform do |job|
     
     # update BulkOperationsWorkProxy status
-    @work ||= ActiveFedora.find(@work_proxy.work_id)
+    @work ||= ActiveFedora::Base.find(@work_proxy.work_id)
     if  @work.id.nil?
       status = "error"
     else
@@ -41,10 +41,15 @@ class BulkOps::WorkJob < ActiveJob::Base
 
     # Check if the parent operation is finished
     # and do any cleanup if so
-    @work_proxy.operation.check_if_finished
+    
+    if @work_proxy.operation.present? && @work_proxy.operation.respond_to?(:check_if_finished)
+      @work_proxy.operation.check_if_finished 
+    end
+  
   end
 
   def perform(workClass,user_email,attributes,work_proxy_id,visibility=nil)
+    return if status == "complete"
     update_status "starting", "Initializing the job"
     attributes['visibility']= visibility if visibility.present?
     @work_proxy = BulkOps::WorkProxy.find(work_proxy_id)
@@ -52,23 +57,9 @@ class BulkOps::WorkJob < ActiveJob::Base
       report_error("Cannot find work proxy with id: #{work_proxy_id}") 
       return
     end
-    if record_exists?(@work_proxy.work_id)
-      # The work exists in Solr. Presumably we're updating it. 
-      # Report an error if we can't retrieve the work from Fedora.
-      begin
-        @work = ActiveFedora::Base.find(@work_proxy.work_id)
-      rescue ActiveFedora::ObjectNotFoundError
-        report_error "Could not find work to update in Fedora (though it shows up in Solr). Work id: #{@work_proxy.work_id}"
-        return
-      end
-    else # The work is not found in Solr. If we're trying to update a work, we're in trouble.
-      if (type.to_s == "update")
-        report_error "Could not find work to update with id: #{@work_proxy.work_id}" 
-        return
-      end
-      # Create the work we are ingesting
-      @work = workClass.capitalize.constantize.new
-    end
+
+    return unless define_work
+
     user = User.find_by_email(user_email)
     update_status "running", "Started background task at #{DateTime.now.strftime("%d/%m/%Y %H:%M")}"
     ability = Ability.new(user)
@@ -100,6 +91,11 @@ class BulkOps::WorkJob < ActiveJob::Base
     atts = {status: status}
     atts[:message] = message if message
     @work_proxy.update(atts)
+  end
+
+  def define_work(workClass)
+    #override this unless you want a simple ingest
+    @work = workClass.capitalize.constantize.new
   end
 
 end
