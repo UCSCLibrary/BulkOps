@@ -6,6 +6,7 @@ module BulkOps
     before_action :define_presenter
     before_action :github_auth
     load_and_authorize_resource
+
     before_action :initialize_options, only: [:new,:show,:edit, :update]
     before_action :initialize_operation, only: [:edit, :destroy, :show, :request_apply, :approve, :csv, :errors, :log, :update, :request, :duplicate]
 
@@ -25,7 +26,7 @@ module BulkOps
       branches = BulkOps::GithubAccess.list_branch_names current_user
       BulkOps::Operation.all.each{|op| op.destroy! unless branches.include?(op.name) }
       @active_operations = BulkOps::Operation.where.not(stage: ['completed','discarded'])
-      @active_operations.each {|op| op.destroy! unless branches.include?(op.name) }
+      @active_operations.each {|op| op.destroy! unless (op.stage == "running") or branches.include?(op.name) }
       @old_operations = BulkOps::Operation.where(stage: ['completed','discarded']) if params["show_old_ops"]
     end
 
@@ -167,25 +168,10 @@ module BulkOps
       #If new options have been defined, update them in github
       if params['edit_options']
         if filtered_options_params && @operation.name
-
           options = @operation.options
-
-          puts "BULKOPS UPDATING OPTIONS"
-          puts "all params: #{params.inspect}"
-          puts "Updating bulk_ops options"
-          puts "new options:"
-          puts filtered_options_params.inspect
-          puts "old options:"
-          puts options.inspect
-
-
           filtered_options_params.each do |option_name, option_value|
             options[option_name] = option_value
           end
-
-          puts "final options:"
-          puts options.inspect
-
           BulkOps::GithubAccess.update_options(@operation.name, options, message: params['git_message'])
           flash[:notice] = "The operation options were updated successfully"
           redirect_to action: "show", id: @operation.id
