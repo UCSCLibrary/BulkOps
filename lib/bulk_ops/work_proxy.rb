@@ -167,7 +167,8 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 #          error_message =  "cannot fetch remote label for url: #{value}"
 #          report_error( :cannot_retrieve_label , error_message, url: value, row_number: row_number) unless label
         else
-          # It's a label, so get the id
+          # It's a label, so unescape it and get the id
+          value = unescape_csv(value)
           id = get_remote_id(value, property: field_name_norm, authority: authority) || localAuthUrl(field_name_norm, value)
 #          label = value
           report_error(:cannot_retrieve_url, 
@@ -175,7 +176,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
                        url: value, 
                        row_number: row_number) unless id
         end
-        controlled_data[field_name_norm] << {id: id, label: label, remove: field_name.downcase.starts_with?("remove")}
+        controlled_data[field_name_norm] << {id: id, remove: field_name.downcase.starts_with?("remove")}
       end
     end
     
@@ -210,6 +211,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       values.split(SEPARATOR).each do |value|
         next if value.blank?
         value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
+        value = unescape_csv(value)
         (metadata[field_name] ||= []) << value
       end
     end
@@ -295,6 +297,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     raw_data.each do |field,value|
       next if value.blank?  or field.blank?
       field = field.to_s              
+      value = unescape_csv(value)
 
       next if value == field
 
@@ -347,6 +350,10 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       return "row"
     end
   end
+
+  def unescape_csv(value)
+    value.gsub(/\\(['";,])/,'\1')
+  end
   
   def format_worktype(value)
     # format the value like a class name
@@ -384,9 +391,8 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return nil unless (entries = Qa::Authorities::Local.subauthority_for(auth).search(value))
     entries.each do |entry|
       #require exact match
-      next unless entry["label"].encode('UTF-8') == value.encode('UTF-8')
-      url = entry["url"]
-      url ||= entry["id"]
+      next unless entry["label"].force_encoding('UTF-8') == value.force_encoding('UTF-8')
+      url = entry["url"] || entry["id"]
 #      url = localIdToUrl(url,auth) unless url =~ URI::regexp
       return url
     end
