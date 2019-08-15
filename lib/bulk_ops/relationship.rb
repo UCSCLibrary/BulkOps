@@ -25,15 +25,24 @@ class BulkOps::Relationship < ActiveRecord::Base
     when "title"
       #          TODO clean up solr query and add work type to it
       query = "{!field f=title_tesim}#{object_identifier}"
-      objects = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path,params: { fq: query, rows: 100})["response"]["docs"].first
-      object = objects.first
-      object ||= Collection.create(title: [object_identifier]) if work_type == "Collection"
-      return object || false
+      objects = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path,
+                                                            params: { fq: query, rows: 100})["response"]["docs"].first
+      if objects.present?
+        return ActiveFedora::Base.find(objects.first["id"])
+      elsif work_type == "Collection"
+        return Collection.create(title: [object_identifier])
+      else
+        return false
+      end
     when "identifier"
       query = "{!field f=identifier_tesim}#{object_identifier}"
       objects = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path,params: { fq: query, rows: 100})["response"]["docs"]
       return false if objects.blank?
-      return objects.first
+      return ActiveFedora::Base.find(objects.first["id"])
+    when "row"
+      object_proxy = WorkProxy.find_by(operation_id: work_proxy.operation.id, 
+                                       row_number: object_identifier.to_i)
+      ActiveFedora::Base.find(object_proxy.work_id)
     end
   end
 
