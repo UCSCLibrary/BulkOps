@@ -58,7 +58,7 @@ class BulkOps::WorkJob < ActiveJob::Base
       return
     end
 
-    return unless define_work
+    return unless define_work(workClass)
 
     user = User.find_by_email(user_email)
     update_status "running", "Started background task at #{DateTime.now.strftime("%d/%m/%Y %H:%M")}"
