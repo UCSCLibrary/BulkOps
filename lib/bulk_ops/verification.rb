@@ -188,18 +188,19 @@ module BulkOps
     def verify_internal_references
       # TODO 
       # This is sketchy. Redo it.
-      get_spreadsheet.each do |row,row_num|
+      (metadata = get_spreadsheet).each do |row,row_num|
         ref_id = get_ref_id(row)
         BulkOps::Operation::RELATIONSHIP_COLUMNS.each do |relationship|
           next unless (obj_id = row[relationship])
-          if (split = obj_id.split(':')).count == 2
+          if (split = obj_id.split(':')).present? && split.count == 2
             ref_id = split[0].downcase
             obj_id = split[1]
           end
           
           if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
+            obj_id = obj_id.to_i
             # This is a row number reference. It should be an integer in the range of possible row numbers.
-            unless obj_id.is_a? Integer && obj_id > 0 && obj_id <= metadata.count
+            unless obj_id.present?(obj_id > 0) && (obj_id <= metadata.count)
               @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
             end  
           elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
@@ -207,14 +208,9 @@ module BulkOps
             unless record_exists?(obj_id)
               @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num+ROW_OFFSET})
             end
-          else
-
-            # This must be based on some other presumably unique field in hyrax, or a dummy field in the spreadsheet. We haven't added this functionality yet. Ignore for now.
-
           end
         end      
       end
     end
-
   end
 end
