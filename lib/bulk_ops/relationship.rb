@@ -13,7 +13,6 @@ class BulkOps::Relationship < ActiveRecord::Base
   end
 
   def findObject
-    work_type = (relationship_type.downcase == "collection") ? "Collection" : work_proxy.work_type
     case identifier_type
     when "id"
       begin
@@ -29,7 +28,7 @@ class BulkOps::Relationship < ActiveRecord::Base
                                                             params: { fq: query, rows: 100})["response"]["docs"].first
       if objects.present?
         return ActiveFedora::Base.find(objects.first["id"])
-      elsif work_type == "Collection"
+      elsif relationship_type.downcase == "collection"
         return Collection.create(title: [object_identifier])
       else
         return false
@@ -40,19 +39,18 @@ class BulkOps::Relationship < ActiveRecord::Base
       return false if objects.blank?
       return ActiveFedora::Base.find(objects.first["id"])
     when "row"
-      object_proxy = WorkProxy.find_by(operation_id: work_proxy.operation.id, 
-                                       row_number: object_identifier.to_i)
+      object_proxy = BulkOps::WorkProxy.find_by(operation_id: work_proxy.operation.id, 
+                                                row_number: (object_identifier.to_i - 2))
       ActiveFedora::Base.find(object_proxy.work_id)
     end
   end
 
-  def resolve! ()
+  def resolve!
     unless subject = work_proxy.work and object = self.findObject
       wait!
       return
     end
     implement_relationship! relationship_type, subject, object
-
   end
   
   def implement_relationship!(type,subject,object)
