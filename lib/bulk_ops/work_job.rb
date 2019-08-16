@@ -23,12 +23,6 @@ class BulkOps::WorkJob < ActiveJob::Base
       relationship.resolve!
     end
 
-    # Attempt to resolve each dangling (objectless) relationships using   
-    # this work as an object
-    BulkOps::Relationship.where(:status => "objectless").each do |relationship|
-      relationship.resolve! @work.id
-    end
-
     # Delete any UploadedFiles. These take up tons of unnecessary disk space.
     @work.file_sets.each do |fileset|
       if uf = Hyrax::UploadedFile.find_by(file: fileset.label)
@@ -40,8 +34,7 @@ class BulkOps::WorkJob < ActiveJob::Base
     @work_proxy.lift_hold
 
     # Check if the parent operation is finished
-    # and do any cleanup if so
-    
+    # and do any cleanup if so    
     if @work_proxy.operation.present? && @work_proxy.operation.respond_to?(:check_if_finished)
       @work_proxy.operation.check_if_finished 
     end

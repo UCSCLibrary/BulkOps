@@ -140,6 +140,12 @@ module BulkOps
 
     def check_if_finished
       return unless stage == "running" && !busy?
+
+      # Attempt to resolve each dangling (objectless) relationships
+      BulkOps::Relationship.where(:status => "pending").each do |relationship|
+        relationship.resolve!
+      end
+
       update(stage: accumulated_errors.blank? ? "complete" : "errors" )
       report_errors!
       lift_holds
