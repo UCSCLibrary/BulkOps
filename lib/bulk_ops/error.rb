@@ -1,7 +1,8 @@
 class BulkOps::Error
   attr_accessor :type, :row_number, :object_id, :message, :option_name, :file, :option_values, :field, :url
 
-  MAX_ERROR = 50
+  MAX_ERROR = 5000
+  MAX_ERROR_SHORT = 50
 
   def initialize type:, row_number: nil, object_id: nil, message: nil, options_name: nil, option_values: nil, field: nil, url: nil , file: nil
     @type = type
@@ -39,12 +40,13 @@ class BulkOps::Error
     return error_file_name
   end
 
-  def self.error_message type, errors
+  def self.error_message type, errors, short=false
+    max_error = short ? MAX_ERROR_SHORT : MAX_ERROR
     case type
     when :mismatched_auth_terms
       message = "\n-- Controlled Authority IDs and Labels don't match -- \n"
       message += "The operation is set to create an error if the provided URLs for controlled authority terms do not resolve to the provided labels.\n"
-      if errors.count < MAX_ERROR
+      if errors.count < max_error
         message += "The following rows were affected:\n"
         message += errors.map{|error| error.row_number}.join(",")+"\n"
       else
@@ -53,7 +55,7 @@ class BulkOps::Error
     when :upload_error
       message = "\n-- Errors uploading files -- \n"
       message += "Your files looked ok when we checked earlier, but we couldn't access them when we were trying to actually start the operation.\n"
-      if errors.count < MAX_ERROR
+      if errors.count < max_error
         message += "The following files were affected:\n"
         message += errors.map{|error| "Row #{row_number}, Filename: #{error.file}"}.join("\n")+"\n" 
       else
@@ -90,7 +92,7 @@ class BulkOps::Error
     when :cannot_retrieve_label 
       message = "\n-- Errors Retrieving Remote Labels --\n"
       urls = errors.map{|error| error.url}.uniq
-      if urls.count < MAX_ERROR
+      if urls.count < max_error
         urls.each do |url|
           url_errors = errors.select{|er| er.url == url}
           message +=  "Error retrieving label for remote url #{url}. \nThis url appears in #{url_errors.count} instances in the spreadsheet.\n"
@@ -104,7 +106,7 @@ class BulkOps::Error
     when :cannot_retrieve_url
       message = "\n-- Errors Retrieving Remote URLs --\n"
       urls = errors.map{|error| error.url}.uniq
-      if urls.count < MAX_ERROR
+      if urls.count < max_error
         urls.each do |url|
           url_errors = errors.select{|er| er.url == url}
           message +=  "Error retrieving URL for remote authority term #{url}. \nThis term appears in #{url_errors.count} instances in the spreadsheet.\n"
@@ -118,7 +120,7 @@ class BulkOps::Error
     when :bad_object_reference 
       message = "\n-- Error: bad object reference --\m" 
       message += "We enountered #{errors.count} problems resolving object references.\n"
-      if errors.count < MAX_ERROR
+      if errors.count < max_error
          message += "The row numbers with problems were:\n"
          message += errors.map{|er| "row number #{er.row_number} references the object #{er.object_id}"}.join("\n")
       else
@@ -128,7 +130,7 @@ class BulkOps::Error
     when :cannot_find_file
       message = "\n-- Missing File Errors --\n "
       message += "We couldn't find the files listed on #{errors.count} rows.\n"
-      if errors.count < MAX_ERROR
+      if errors.count < max_error
         message += "Missing filenames:\n"
         message += errors.map{|er| er.file}.join("\n")
       else
