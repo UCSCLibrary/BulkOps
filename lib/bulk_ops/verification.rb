@@ -200,7 +200,7 @@ module BulkOps
           if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
             obj_id = obj_id.to_i
             # This is a row number reference. It should be an integer in the range of possible row numbers.
-            unless obj_id.present?(obj_id > 0) && (obj_id <= metadata.count)
+            unless obj_id.present? && (obj_id > 0) && (obj_id <= metadata.count)
               @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
             end  
           elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
