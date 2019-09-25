@@ -9,42 +9,40 @@ class BulkOps::WorkJob < ActiveJob::Base
   after_perform do |job|
     
     # update BulkOperationsWorkProxy status
-    @work ||= ActiveFedora::Base.find(@work_proxy.work_id)
-    if  @work.id.nil?
-      status = "error"
+    if  @work.nil? || @work.id.nil?
+      update_status "error"
     else
       @work_proxy.work_id = @work.id
-      status = "complete"
-    end
-    update_status status
+      update_status "complete"
 
-    # Attempt to resolve all of the relationships defined in this row   
-    @work_proxy.relationships.each do |relationship|
-      relationship.resolve!
-    end
-
-    # Delete any UploadedFiles. These take up tons of unnecessary disk space.
-    @work.file_sets.each do |fileset|
-      if uf = Hyrax::UploadedFile.find_by(file: fileset.label)
-        uf.destroy!
+      # Attempt to resolve all of the relationships defined in this row   
+      @work_proxy.relationships.each do |relationship|
+        relationship.resolve!
       end
-    end
 
-    # Remove any edit holds placed on an item
-    @work_proxy.lift_hold
+      # Delete any UploadedFiles. These take up tons of unnecessary disk space.
+      @work.file_sets.each do |fileset|
+        if uf = Hyrax::UploadedFile.find_by(file: fileset.label)
+          uf.destroy!
+        end
+      end
 
-    # Check if the parent operation is finished
-    # and do any cleanup if so    
-    if @work_proxy.operation.present? && @work_proxy.operation.respond_to?(:check_if_finished)
-      @work_proxy.operation.check_if_finished 
-    end
-  
+      # Remove any edit holds placed on an item
+      @work_proxy.lift_hold
+
+      # Check if the parent operation is finished
+      # and do any cleanup if so    
+      if @work_proxy.operation.present? && @work_proxy.operation.respond_to?(:check_if_finished)
+        @work_proxy.operation.check_if_finished 
+      end
+    end 
   end
 
   def perform(workClass,user_email,attributes,work_proxy_id,visibility=nil)
     return if status == "complete"
     update_status "starting", "Initializing the job"
     attributes['visibility']= visibility if visibility.present?
+    attributes['title'] = ['Untitled'] if attributes['title'].blank?
     @work_proxy = BulkOps::WorkProxy.find(work_proxy_id)
     unless @work_proxy
       report_error("Cannot find work proxy with id: #{work_proxy_id}") 
@@ -79,9 +77,10 @@ class BulkOps::WorkJob < ActiveJob::Base
     :create
   end
 
-  def update_status status, message=false
+  def update_status stat, message=false
+    @status = stat
     return false unless @work_proxy
-    atts = {status: status}
+    atts = {status: stat}
     atts[:message] = message if message
     @work_proxy.update(atts)
   end
