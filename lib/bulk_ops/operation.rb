@@ -141,12 +141,21 @@ module BulkOps
     def check_if_finished
       return unless stage == "running" && !busy?
 
+      update(stage: "finishing")
+
       # Attempt to resolve each dangling (objectless) relationships
       BulkOps::Relationship.where(:status => "pending").each do |relationship|
-        relationship.resolve!
+        relationship.resolve! if relationship.work_proxy.operation_id == id
+      end
+      
+      work_proxies.each do |proxy|
+        wrk = Work.find(proxy.work_id)
+        wrk.save if wrk.members.any?{|mem| mem.class.to_s !== "FileSet"}
+        sd = SolrDocument.find(wrk.id)
+        wrk.save if sd['hasRelatedImage_ssim'].present? && sd['relatedImageId_ss'].blank?
       end
 
-      update(stage: accumulated_errors.blank? ? "complete" : "errors" )
+      update(stage: (accumulated_errors.blank? ? "complete" : "errors" ))
       report_errors!
       lift_holds
     end
@@ -272,7 +281,7 @@ module BulkOps
     def options
       return {} if name.nil?
       return @options if @options
-      branch = running? ? "master" : nil
+      branch = (running? || complete?) ? "master" : nil
       @options ||= git.load_options(branch: branch)
     end
 
