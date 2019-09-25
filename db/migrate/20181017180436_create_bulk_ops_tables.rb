@@ -33,6 +33,7 @@ class CreateBulkOpsTables < ActiveRecord::Migration[5.0]
       t.string   :identifier_type
       t.string   :relationship_type
       t.string   :status
+      t.string   :next
       t.timestamps
     end
 
