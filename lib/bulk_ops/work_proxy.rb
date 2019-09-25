@@ -2,7 +2,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
   require 'uri'
   OPTION_FIELDS = ['visibility','work type']
-  RELATIONSHIP_FIELDS = ['parent','child','collection','next','order']
+  RELATIONSHIP_FIELDS = ['parent','child','collection','order']
   REFERENCE_IDENTIFIER_FIELDS = ['Reference Identifier','ref_id','Reference ID','Relationship ID','Relationship Identifier','Reference Identifier Type','Reference ID Type','Ref ID Type','relationship_identifier_type','relationship_id_type']
   FILE_FIELDS = ['file','files','filename','filenames']
   FILE_ACTIONS = ['add','upload','remove','delete']
@@ -49,6 +49,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     metadata.merge! interpret_relationship_fields(raw_data )
     metadata.merge! interpret_option_fields(raw_data)
     metadata = setAdminSet(metadata)
+    metadata = setMetadataInheritance(metadata)
     return metadata
   end
 
@@ -208,7 +209,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
       field = schema.get_field(field_name)
       # Ignore controlled fields
       next if field.controlled?
-      values.split(SEPARATOR).each do |value|
+      split_values(values).each do |value|
         next if value.blank?
         value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
         value = unescape_csv(value)
@@ -292,62 +293,94 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return {}
   end
 
-  def interpret_relationship_fields raw_data
+  def interpret_relationship_fields raw_data, row_number=nil
     metadata = {}
-    raw_data.each do |field,value|
+    raw_data do |field,value|
       next if value.blank?  or field.blank?
       field = field.to_s              
       value = unescape_csv(value)
+      identifer_type = reference_identifier
 
       next if value == field
 
       if (split = field.split(":")).count == 2
-        ref_id = split.first
-        field = split.last.to_s
+        identifier_type = split.last
+        field = split.first.to_s
       end
 
-      normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
-      #      next unless RELATIONSHIP_FIELDS.include? normfield
-      
-      # If the field specifies the object's order among siblings (usually for multiple filesets)
-      update(order: value.to_f) if normfield == "order"
-      
-      # If the field specifies the name or ID of a collection,
-      # find or create the collection and update the metadata to match
-      if ["collection","collectiontitle","memberofcollection","collectionname", "collectionid"].include?(normfield)
+      relationship_type = normalize_relationship_field_name(field)
+      case relationship_type
+      when "order"
+         # If the field specifies the object's order among siblings (usually for multiple filesets)
+        update(order: value.to_f)
+      when "collection"
+        # If the field specifies the name or ID of a collection,
+        # find or create the collection and update the metadata to match
         col = find_or_create_collection(value)
         ( metadata[:member_of_collection_ids] ||= [] ) << col.id if col
+      when "parent", "child"
+        object_id = interpret_relationship_value(value,identifier_type)
       end
-
-      # All variations of field names that require BulkOps::Relationship objects
-      next unless ["parent","parentid","parentidentifier","parentwork","child","childid","childidentifier","childwork","next","nextfile","nextwork","nextid","nextfileidentifier","nextfileid","nextworkid"].include?(normfield)
       
-      # find which type of relationship
-      ["parent","child","next"].select{|type| normfield.include?(type)}.first
       # correctly interpret the notation "id:a78C2d81"
       if ((split = value.split(":")).count == 2)
-        ref_id = split.first
+        identifier_type = split.first
         value = split.last
       end
-      BulkOps::Relationship.create( { work_proxy_id: id,
-                                      identifier_type: ref_id || reference_identifier,
+
+      interpret_relationship_value(identifier_type, value)
+
+      relationship_parameters =  { work_proxy_id: id,
+                                      identifier_type: ref_type,
                                       relationship_type: normfield,
                                       object_identifier: value,
-                                      status: "new"} )
+                                      status: "new"}
+
+      #add previous sibling link if necessary
+      previous_value = op.metadata[row_number-1][field]
+      if previous_value.present? && (ref_type == "parent")
+        if value == interpret_relationship_value(ref_type, previous_value)
+          relationship_parameters[:previous_sibling] = operation.work_proxies.find_by(row_number: row_number-1).id 
+        end
+      end
+      BulkOps::Relationship.create(relationship_parameters)
     end
     return metadata
   end
 
-  def format_reference_id(value)
-    return value if value=="id"
-    # normalize the value string
-    value_method = value.titleize.gsub(/[-_\s]/,'').downcase_first_letter
-    # if this is a valid metadata property or solr parameter, return it as-is
-    return value_method if (schema.get_field?(value_method) || SolrDocument.new.respond_to?(value_method))
-    # if it is means to reference a row number, return the string "row"
-    case value.downcase.parameterize.gsub(/[_\s-]/,'')
-    when "row", "rownum","row number"
-      return "row"
+  def normalize_relationship_field_name field
+    normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
+    RELATIONSHIP_FIELDS.find{|field| normfield.include?(field) }
+  end
+
+  def find_previous_parent field
+    i = 0;
+    while (prev_row = operation.metadata[row_number - i])
+      return (row_number - i) if prev_row[field].blank?
+    end
+  end
+
+  def find_previous_sibling (field,ref_type,object)
+    previous_value = interpret_relationship_value(ref_type,op.metadata[row_number-1][field])
+    return nil unless previous_value == object
+    return 
+  end
+
+  def interpret_relationship_value id_type, value, field="parent"
+    #Handle "id:20kj4259" syntax if it hasn't already been handled
+    if (split = value.to_s.split(":")).count == 2
+      id_type = split.first
+      value = split.last
+    end
+    #Handle special shorthand syntax for refering to relative row numbers
+    if id_type == "row"
+      if value.to_i < 0
+        # if given a negative integer, count backwards from the current row 
+        return row_number - value
+      elsif value.to_s.downcase.include?("prev")
+        # if given any variation of the word "previous", get the first preceding row with no parent of its own
+        return find_previous_parent(field)
+      end
     end
   end
 
@@ -422,7 +455,13 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return metadata if metadata[:admin_set_id]
     asets = AdminSet.where({title: "Bulk Ingest Set"})
     asets = AdminSet.find('admin_set/default') if asets.blank?
-    metadata[:admin_set_id] = asets.first.id unless asets.blank?
+    metadata[:admin_set_id] = Array(asets).first.id unless asets.blank?
+    return metadata
+  end
+
+  def setMetadataInheritance metadata
+    return metadata if metadata[:metadataInheritance].present?
+    metadata[:metadataInheritance] = operation.options["metadataInheritance"] unless operation.options["metadataInheritance"].blank?
     return metadata
   end
 
