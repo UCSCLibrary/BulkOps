@@ -3,6 +3,7 @@ class BulkOps::Relationship < ActiveRecord::Base
 
   self.table_name = "bulk_ops_relationships"
   belongs_to :work_proxy, class_name: "BulkOps::WorkProxy", foreign_key: "work_proxy_id"
+  delegate :operation, :operation_id, to: :work_proxy
 
   def initialize *args
     super *args
@@ -13,7 +14,7 @@ class BulkOps::Relationship < ActiveRecord::Base
   end
 
   def findObject
-    case identifier_type
+    case identifier_type.downcase
     when "id"
       begin
       object = ActiveFedora::Base.find(object_identifier)
@@ -25,7 +26,7 @@ class BulkOps::Relationship < ActiveRecord::Base
       #          TODO clean up solr query and add work type to it
       query = "{!field f=title_tesim}#{object_identifier}"
       objects = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path,
-                                                            params: { fq: query, rows: 100})["response"]["docs"].first
+                                                            params: { fq: query, rows: 100})["response"]["docs"]
       if objects.present?
         return ActiveFedora::Base.find(objects.first["id"])
       elsif relationship_type.downcase == "collection"
@@ -39,9 +40,13 @@ class BulkOps::Relationship < ActiveRecord::Base
       return false if objects.blank?
       return ActiveFedora::Base.find(objects.first["id"])
     when "row"
-      object_proxy = BulkOps::WorkProxy.find_by(operation_id: work_proxy.operation.id, 
+      object_proxy = BulkOps::WorkProxy.find_by(operation_id: work_proxy.operation_id, 
                                                 row_number: (object_identifier.to_i - 2))
       ActiveFedora::Base.find(object_proxy.work_id)
+    when "proxy_id"
+      return false unless (proxy = BulkOps::WorkProxy.find(proxy_id))
+      return false unless proxy.work_id.present?
+      ActiveFedora::Base.find(proxy.work_id)
     end
   end
 
@@ -54,18 +59,22 @@ class BulkOps::Relationship < ActiveRecord::Base
   end
   
   def implement_relationship!(type,subject,object)
-    case type
+    case type.downcase
     when "parent"
-      object.ordered_members << subject
-      object.save
+      unless object.member_ids.include? subject.id
+        object.ordered_members << subject
+        object.save
+      end
     when "child"
-      subject.ordered_members << object
-      subject.save
+      unless subject.member_ids.include? object.id
+        subject.ordered_members << object
+        subject.save
+      end
     when "collection"
-      object.add_members([subject.id])
-      object.save
-    when "next"
-    #TODO - implement this - related to ordering of filesets
+      unless object.member_object_ids.include? subject.id
+        object.add_members([subject.id])
+        object.save
+      end
     when "order"
       #TODO - implement this - related to ordering of filesets
       
