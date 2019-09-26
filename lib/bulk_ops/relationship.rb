@@ -57,15 +57,38 @@ class BulkOps::Relationship < ActiveRecord::Base
     end
     implement_relationship! relationship_type, subject, object
   end
+
+  def insert_among_siblings(ordered_members,new_member)
+    return nil unless ["parent"].include?(relationship_type.downcase)
+    prev_sib_id = previous_sibling
+    while prev_sib_id.present? 
+      prev_sib_proxy = BulkOps::WorkProxy.find(previous_sibling)
+      # check if the previous sibling has been fully ingested
+      if prev_sib_proxy.work_id.present?
+        # Check if the previous sibling is attached to the parent
+        prev_member = ordered_members.find{|member| member.id == prev_sib_proxy.work_id}
+        # Insert the new member among its siblings at the right place
+        return ordered_members.insert(ordered_members.index(prev_member)+1, new_member) if prev_member.present?
+      end
+      # Otherwise, check if this sibling has a sibling before it
+      sib_relationship = prev_sib_proxy.relationships.find_by(relationship_type: relationship_type, object_identifier: object_identifier)
+      # If we can't find an ingested sibling among the ordered members,
+      # make this work the first member.
+      break unless sib_relationship.present?
+      prev_sib_id = sib_relationship.previous_sibling
+    end
+    return  [new_member]+ordered_members
+  end
   
   def implement_relationship!(type,subject,object)
     case type.downcase
     when "parent"
       unless object.member_ids.include? subject.id
-        object.ordered_members << subject
+        object.ordered_members = insert_among_siblings(ordered_members, new_member)
         object.save
       end
     when "child"
+      #CAVEAT ordering not fully implemented in this case
       unless subject.member_ids.include? object.id
         subject.ordered_members << object
         subject.save
