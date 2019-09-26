@@ -150,7 +150,7 @@ module BulkOps
       
       work_proxies.each do |proxy|
         wrk = Work.find(proxy.work_id)
-        wrk.save if wrk.members.any?{|mem| mem.class.to_s !== "FileSet"}
+        wrk.save if wrk.members.any?{|mem| mem.class.to_s != "FileSet"}
         sd = SolrDocument.find(wrk.id)
         wrk.save if sd['hasRelatedImage_ssim'].present? && sd['relatedImageId_ss'].blank?
       end

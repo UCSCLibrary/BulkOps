@@ -58,7 +58,7 @@ class BulkOps::Relationship < ActiveRecord::Base
     implement_relationship! relationship_type, subject, object
   end
 
-  def insert_among_siblings(object,new_member)
+  def insert_among_children(object,new_member)
     return nil unless ["parent"].include?(relationship_type.downcase)
     prev_sib_id = previous_sibling
     # This is the id of the WorkProxy associate with the most recent sibling work
@@ -68,7 +68,8 @@ class BulkOps::Relationship < ActiveRecord::Base
       prev_sib_proxy = BulkOps::WorkProxy.find(previous_sibling)
       # Check if the previous sibling is fully ingested 
       # and get its index among its siblings (if it has been successfully attached to the parent)
-      prev_sib_index = object.ordered_member_ids.index(prev_sib_proxy.work_id) if prev_sib_proxy.work_id.present?      # Insert the new member among its siblings if we found the right place
+      prev_sib_index = object.ordered_member_ids.index(prev_sib_proxy.work_id) if prev_sib_proxy.work_id.present?
+      # Insert the new member among its siblings if we found the right place
       return object.ordered_members.to_a.insert(prev_sib_index+1, new_member) if prev_sib_index.present?
       # Otherwise, pull up the sibling's relationship field to check if it sibling has a sibling before it
       sib_relationship = prev_sib_proxy.relationships.find_by(relationship_type: relationship_type, object_identifier: object_identifier)
@@ -77,14 +78,15 @@ class BulkOps::Relationship < ActiveRecord::Base
       break unless sib_relationship.present?
       prev_sib_id = sib_relationship.previous_sibling
     end
-    return  [new_member]+ordered_members.to_a
+    #If we never found an existing previous sibling already attached, put this one at the front
+    return  [new_member]+object.ordered_members.to_a
   end
   
   def implement_relationship!(type,subject,object)
     case type.downcase
     when "parent"
       unless object.member_ids.include? subject.id
-        object.ordered_members = insert_among_siblings(object, new_member)
+        object.ordered_members = insert_among_children(object, subject)
         object.save
       end
     when "child"
