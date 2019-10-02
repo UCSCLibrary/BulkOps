@@ -46,7 +46,7 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     metadata.merge! interpret_file_fields(raw_data)
     metadata.merge! interpret_controlled_fields(raw_data)
     metadata.merge! interpret_scalar_fields(raw_data)
-    metadata.merge! interpret_relationship_fields(raw_data )
+    metadata.merge! interpret_relationship_fields(raw_data)
     metadata.merge! interpret_option_fields(raw_data)
     metadata = setAdminSet(metadata)
     metadata = setMetadataInheritance(metadata)
@@ -293,9 +293,9 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     return {}
   end
 
-  def interpret_relationship_fields raw_data, row_number=nil
+  def interpret_relationship_fields(raw_data)
     metadata = {}
-    raw_data do |field,value|
+    raw_data.each do |field,value|
       next if value.blank?  or field.blank?
       field = field.to_s              
       value = unescape_csv(value)
@@ -305,47 +305,49 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
       if (split = field.split(":")).count == 2
         identifier_type = split.last
-        field = split.first.to_s
+        relationship_type = split.first.to_s
+      else
+        relationship_type = field
       end
 
-      relationship_type = normalize_relationship_field_name(field)
+      relationship_type = normalize_relationship_field_name(relationship_type)
       case relationship_type
       when "order"
-         # If the field specifies the object's order among siblings (usually for multiple filesets)
+         # If the field specifies the object's order among siblings 
         update(order: value.to_f)
+        next
       when "collection"
         # If the field specifies the name or ID of a collection,
         # find or create the collection and update the metadata to match
         col = find_or_create_collection(value)
         ( metadata[:member_of_collection_ids] ||= [] ) << col.id if col
+        next
       when "parent", "child"
-        object_id = interpret_relationship_value(value,identifier_type)
-      end
-      
-      # correctly interpret the notation "id:a78C2d81"
-      if ((split = value.split(":")).count == 2)
-        identifier_type = split.first
-        value = split.last
-      end
+        
+        # correctly interpret the notation "id:a78C2d81"
+        identifier_type, object_identifier = interpret_relationship_value(identifier_type, value)
 
-      interpret_relationship_value(identifier_type, value)
-
-      relationship_parameters =  { work_proxy_id: id,
-                                      identifier_type: ref_type,
-                                      relationship_type: normfield,
-                                      object_identifier: value,
-                                      status: "new"}
-
-      #add previous sibling link if necessary
-      previous_value = op.metadata[row_number-1][field]
-      if previous_value.present? && (ref_type == "parent")
-        if value == interpret_relationship_value(ref_type, previous_value)
-          relationship_parameters[:previous_sibling] = operation.work_proxies.find_by(row_number: row_number-1).id 
+        relationship_parameters =  { work_proxy_id: id,
+                                     identifier_type: identifier_type,
+                                     relationship_type: relationship_type,
+                                     object_identifier: object_identifier,
+                                     status: "new"}
+        
+        #add previous sibling link if necessary
+        previous_value = operation.final_spreadsheet[row_number-1][field]
+        # Check if this is a parent relationship, and the previous row also has one
+        if previous_value.present? && (relationship_type == "parent")
+          # Check if the previous row has the same parent as this row
+          if object_identifier == interpret_relationship_value(identifier_type, previous_value, field).last
+            # If so, set the previous sibling parameter on the relationshp 
+            #    to the id for the proxy associated with the previous row
+            relationship_parameters[:previous_sibling] = operation.work_proxies.find_by(row_number: row_number-1).id 
+          end
         end
+        BulkOps::Relationship.create(relationship_parameters)
       end
-      BulkOps::Relationship.create(relationship_parameters)
+      return metadata
     end
-    return metadata
   end
 
   def normalize_relationship_field_name field
@@ -353,17 +355,13 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     RELATIONSHIP_FIELDS.find{|field| normfield.include?(field) }
   end
 
-  def find_previous_parent field
+  def find_previous_parent field="parent"
+    #Return the row number of the most recent preceding row that does
+    # not itself have a parent defined
     i = 0;
-    while (prev_row = operation.metadata[row_number - i])
+    while (prev_row = operation.final_spreadsheet[row_number - i])
       return (row_number - i) if prev_row[field].blank?
     end
-  end
-
-  def find_previous_sibling (field,ref_type,object)
-    previous_value = interpret_relationship_value(ref_type,op.metadata[row_number-1][field])
-    return nil unless previous_value == object
-    return 
   end
 
   def interpret_relationship_value id_type, value, field="parent"
@@ -376,12 +374,13 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     if id_type == "row"
       if value.to_i < 0
         # if given a negative integer, count backwards from the current row 
-        return row_number - value
+        return [id_type,row_number - value]
       elsif value.to_s.downcase.include?("prev")
         # if given any variation of the word "previous", get the first preceding row with no parent of its own
-        return find_previous_parent(field)
+        return [id_type,find_previous_parent(field)]
       end
     end
+    return [id_type,value]
   end
 
   def unescape_csv(value)
