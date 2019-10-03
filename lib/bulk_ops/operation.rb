@@ -7,32 +7,9 @@ module BulkOps
 
     include BulkOps::Verification
 
-    attr_accessor :work_type, :visibility, :reference_identifier
+    attr_accessor :work_type, :visibility, :reference_identifier, :metadata
     
     delegate  :can_merge?, :merge_pull_request, to: :git
-
-    INGEST_MEDIA_PATH = "/dams_ingest"
-    TEMPLATE_DIR = "lib/bulk_ops/templates"
-    RELATIONSHIP_COLUMNS = ["parent","child","next"]
-    SPECIAL_COLUMNS = ["parent",
-                       "child",
-                       "order",
-                       "next",
-                       "work_type",
-                       "collection", 
-                       "collection_title",
-                       "collection_id",
-                       "visibility",
-                       "relationship_identifier_type",
-                       "id",
-                       "filename",
-                       "file"]
-    IGNORED_COLUMNS = ["ignore","offline_notes"]
-    OPTION_REQUIREMENTS = {type: {required: true, 
-                                  values:[:ingest,:update]},
-                           file_method: {required: :true,
-                                           values: [:replace_some,:add_remove,:replace_all]},
-                           notifications: {required: true}}
 
     def self.unique_name name, user
       while  BulkOps::Operation.find_by(name: name) || BulkOps::GithubAccess.list_branch_names(user).include?(name) do
@@ -119,7 +96,7 @@ module BulkOps
       @metadata.each_with_index do |values,row_number|
         proxy = work_proxies.find_by(row_number: row_number)
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
-        data = proxy.interpret_data values 
+        data = BulkOps::Parser.new(proxy, @metadata).interpret_data(raw_row: values)
         next unless proxy.proxy_errors.blank?
         BulkOps::CreateWorkJob.perform_later(proxy.work_type || "Work",
                                              user.email,
@@ -202,7 +179,7 @@ module BulkOps
       
       #loop through the work proxies to create a job for each work
       work_proxies.each do |proxy|
-        data = proxy.interpret_data final_spreadsheet[proxy.row_number]
+        data = BulkOps::Parser.new(proxy,final_spreadsheet).interpret_data(raw_row: final_spreadsheet[proxy.row_number])
         BulkOps::UpdateWorkJob.perform_later(proxy.work_type || "",
                                              user.email,
                                              data,
@@ -238,13 +215,13 @@ module BulkOps
       bulk_ops_dir = Gem::Specification.find_by_name("bulk_ops").gem_dir
 
       #copy template files
-      Dir["#{bulk_ops_dir}/#{TEMPLATE_DIR}/*"].each do |file| 
+      Dir["#{bulk_ops_dir}/#{BulkOps::TEMPLATE_DIR}/*"].each do |file| 
         git.add_file file 
       end
 
       #update configuration options 
       unless options.blank?
-        full_options = YAML.load_file(File.join(bulk_ops_dir,TEMPLATE_DIR, BulkOps::GithubAccess::OPTIONS_FILENAME))
+        full_options = YAML.load_file(File.join(bulk_ops_dir,BulkOps::TEMPLATE_DIR, BulkOps::OPTIONS_FILENAME))
 
         options.each { |option, value| full_options[option] = value }
 
@@ -276,6 +253,10 @@ module BulkOps
 
     def update_options options, message=nil
       git.update_options(options, message: message)
+    end
+
+    def metadata
+      @metadata ||= git.load_metadata
     end
 
     def options
@@ -332,7 +313,7 @@ module BulkOps
     end
 
     def ignored_fields
-      (options['ignored headers'] || []) + IGNORED_COLUMNS
+      (options['ignored headers'] || []) + BulkOps::IGNORED_COLUMNS
     end
 
 
