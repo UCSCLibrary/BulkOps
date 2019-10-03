@@ -5,10 +5,6 @@ require 'base64'
 
 class BulkOps::GithubAccess
 
-  ROW_OFFSET = 2
-  SPREADSHEET_FILENAME = 'metadata.csv'
-  OPTIONS_FILENAME = 'configuration.yml'
-
   attr_accessor :name
 
   def self.auth_url user
@@ -142,11 +138,11 @@ class BulkOps::GithubAccess
   def add_new_spreadsheet file, message=false
     if file.is_a? Tempfile
       file.close
-      add_file file.path, SPREADSHEET_FILENAME, message: message
+      add_file file.path, BulkOps::SPREADSHEET_FILENAME, message: message
     elsif file.is_a?(String) && File.file?(file)
-      add_file file, SPREADSHEET_FILENAME, message: message
+      add_file file, BulkOps::SPREADSHEET_FILENAME, message: message
     elsif file.is_a? String
-      add_contents(spreadsheet_path, SPREADSHEET_FILENAME, message: message)
+      add_contents(spreadsheet_path, BulkOps::SPREADSHEET_FILENAME, message: message)
     end
   end
 
@@ -218,12 +214,12 @@ class BulkOps::GithubAccess
 
   def get_metadata_row row_number
     @current_metadata ||= load_metadata
-    @current_metadata[row_number - ROW_OFFSET]
+    @current_metadata[row_number - BulkOps::ROW_OFFSET]
   end
   
   def get_past_metadata_row commit_sha, row_number
     past_metadata = Base64.decode64( client.contents(repo, path: filename, ref: commit_sha) )
-    past_metadata[row_number - ROW_OFFSET]
+    past_metadata[row_number - BulkOps::ROW_OFFSET]
   end
 
   def get_file filename
@@ -244,13 +240,13 @@ class BulkOps::GithubAccess
   end
 
   def spreadsheet_path
-    "#{name}/#{SPREADSHEET_FILENAME}"
+    "#{name}/#{BulkOps::SPREADSHEET_FILENAME}"
   end
 
   private
 
   def options_path
-    "#{name}/#{OPTIONS_FILENAME}"
+    "#{name}/#{BulkOps::OPTIONS_FILENAME}"
   end
 
   def current_master_commit_sha

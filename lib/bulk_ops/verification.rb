@@ -35,7 +35,7 @@ module BulkOps
       return false if fieldname.blank?
       return false if schema.get_field(fieldname)
       field_parts = fieldname.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
-      return false unless field_parts.any?{ |field_type| BulkOps::WorkProxy::FILE_FIELDS.include?(field_type) }
+      return false unless field_parts.any?{ |field_type| BulkOps::FILE_FIELDS.include?(field_type) }
       return "remove" if field_parts.any?{ |field_type| ['remove','delete'].include?(field_type) }
       return "add"
     end
@@ -46,7 +46,7 @@ module BulkOps
       name.gsub!(/[_\s-]?[lL]abel$/,'')
       name.gsub!(/^[rR]emove[_\s-]?/,'')
       name.gsub!(/^[dD]elete[_\s-]?/,'')
-      possible_fields = Work.attribute_names + schema.all_field_names
+      possible_fields = (Work.attribute_names + schema.all_field_names).uniq
       matching_fields = possible_fields.select{|pfield| pfield.gsub(/[_\s-]/,'').parameterize == name.gsub(/[_\s-]/,'').parameterize }
       return false if matching_fields.blank?
       #      raise Exception "Ambiguous metadata fields!" if matching_fields.uniq.count > 1
@@ -55,8 +55,8 @@ module BulkOps
 
     def get_file_paths(filestring)
       return [] if filestring.blank?
-      filenames = filestring.split(BulkOps::WorkProxy::SEPARATOR)
-      filenames.map { |filename| File.join(BulkOps::Operation::INGEST_MEDIA_PATH, options['file_prefix'] || "", filename) }
+      filenames = filestring.split(BulkOps::SEPARATOR)
+      filenames.map { |filename| File.join(BulkOps::INGEST_MEDIA_PATH, options['file_prefix'] || "", filename) }
     end
 
     def record_exists? id
@@ -85,7 +85,7 @@ module BulkOps
     end
 
     def verify_configuration
-      BulkOps::Operation::OPTION_REQUIREMENTS.each do |option_name, option_info|
+      BulkOps::OPTION_REQUIREMENTS.each do |option_name, option_info|
         # Make sure it's present if required
         if (option_info["required"].to_s == "true") || (option_info["required"].to_s == type)
           if options[option_name].blank?
@@ -120,7 +120,7 @@ module BulkOps
         # Ignore everything marked as a label
         next if column_name_redux.ends_with? "label"
         # Ignore any column names with special meaning in hyrax
-        next if BulkOps::Operation::SPECIAL_COLUMNS.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
+        next if BulkOps::SPECIAL_COLUMNS.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
         # Ignore any columns speficied to be ignored in the configuration
         ignored = options["ignored headers"] || []
         next if ignored.any?{|col| col.downcase.parameterize.gsub(/[_\s-]/,"") == column_name_redux }
@@ -131,7 +131,7 @@ module BulkOps
     end
 
     def verify_remote_urls
-      row_offset = BulkOps::GithubAccess::ROW_OFFSET.present? ? BulkOps::GithubAccess::ROW_OFFSET : 2
+      row_offset = BulkOps::ROW_OFFSET.present? ? BulkOps::ROW_OFFSET : 2
       get_spreadsheet.each_with_index do |row, row_num|
         update(message: "verifying controlled vocab urls (row number #{row_num})")
         next if row_num.nil?
@@ -173,7 +173,7 @@ module BulkOps
     def get_ref_id row
       row.each do |field,value| 
         next if field.blank? or value.blank? or field === value
-        next unless BulkOps::WorkProxy::REFERENCE_IDENTIFIER_FIELDS.any?{ |ref_field| normalize_field(ref_field) ==  normalize_field(field) }
+        next unless BulkOps::REFERENCE_IDENTIFIER_FIELDS.any?{ |ref_field| normalize_field(ref_field) ==  normalize_field(field) }
         return value 
       end
       # No reference identifier specified in the row. Use the default for the operation.
@@ -190,7 +190,7 @@ module BulkOps
       # This is sketchy. Redo it.
       (metadata = get_spreadsheet).each do |row,row_num|
         ref_id = get_ref_id(row)
-        BulkOps::Operation::RELATIONSHIP_COLUMNS.each do |relationship|
+        BulkOps::RELATIONSHIP_COLUMNS.each do |relationship|
           next unless (obj_id = row[relationship])
           if (split = obj_id.split(':')).present? && split.count == 2
             ref_id = split[0].downcase
