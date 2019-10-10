@@ -81,15 +81,19 @@ module BulkOps
       #Destroy any existing work proxies (which should not exist for an ingest). Create new proxies from finalized spreadsheet only.
       work_proxies.each{|proxy| proxy.destroy!}
 
-      #create a work proxy for each row in the spreadsheet
+      #create a work proxy for each work in the spreadsheet, creating filesets where appropriate
       @metadata.each_with_index do |values,row_number|
         next if values.to_s.gsub(',','').blank?
+
+        next if BulkOps::Parser.is_file_set? @metadata, row_number
+
         work_proxies.create(status: "queued",
                             last_event: DateTime.now,
                             row_number: row_number,
                             visibility: options['visibility'],
                             message: "created during ingest initiated by #{user.name || user.email}")
       end
+      
       # make sure the work proxies we just created are loaded in memory
       reload
       #loop through the work proxies to create a job for each work
