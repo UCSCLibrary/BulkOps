@@ -5,6 +5,18 @@ class BulkOps::Parser
 
   delegate :relationships, :operation, :row_number, :work_id, :visibility, :work_type, :reference_identifier, :order, to: :proxy
 
+  def self.is_file_set? metadata, row_number
+    return false unless metadata[row_number].present?
+#    If there are any valid fields other than relationship or file fields, it is a work
+    metadata[row_number].each do |field, value|
+      next if is_file_field?(field)
+      next if ["parent", "order"].include(normalize_relationship_field_name(field))
+      next if ["title","label"].include(field.downcase.strip)
+      return false
+    end
+    return true
+  end
+
   def initialize prx, metadata_sheet=nil
     @proxy = prx
     @raw_data = (metadata_sheet || proxy.operation.metadata)
@@ -18,9 +30,11 @@ class BulkOps::Parser
     @proxy = proxy if proxy.present?
     @raw_data = raw_data if raw_data.present?
     setAdminSet
+    #The order here matters a little: interpreting the relationship fields specifies containing collections,
+    # which may have opinions about whether we should inherit metadata from parent works
+    interpret_relationship_fields
     setMetadataInheritance
     interpret_option_fields
-    interpret_relationship_fields
     disambiguate_columns
     interpret_file_fields
     interpret_controlled_fields
@@ -150,7 +164,6 @@ class BulkOps::Parser
     # some or all existing files, those replacement-related deletions are handled
     # by the BulkOps::Operation.
     #
-    # TODO: THIS DOES NOT YET MANAGE THE ORDER OF INGESTED FILESETS
 
     row = @raw_row.dup
     @raw_row.each do |field, value|
@@ -158,7 +171,6 @@ class BulkOps::Parser
       field = field.to_s
       #If our CSV interpreter is feeding us the headers as a line, ignore it.
       next if field == value
-
 
       # Check if this is a file field, and whether we are removing or adding a file
       next unless (action = is_file_field?(field))
@@ -184,6 +196,22 @@ class BulkOps::Parser
           end
         end
       end
+
+      # Check if any of the upcoming rows are child filesets
+      i = 1
+      while self.class.is_file_set?(@metadata,row_number+i)
+        child_row.each do |field,value|
+          next if value.blank?
+          title = value if ["title","label"].include?(field.downcase.strip)
+          if is_file_field?(field)
+            operation.get_file_paths(value).each do |filepath|
+              uploaded_file = Hyrax::UploadedFile.create(file:  File.open(filepath), user: operation.user)
+            end
+          end
+        end
+        i+=1
+      end
+
     end
     @raw_row = row
   end
@@ -259,7 +287,7 @@ class BulkOps::Parser
         
         # correctly interpret the notation "id:a78C2d81"
         identifier_type, object_identifier = interpret_relationship_value(identifier_type, value)
-
+        
         relationship_parameters =  { work_proxy_id: @proxy.id,
                                      identifier_type: identifier_type,
                                      relationship_type: relationship_type,
@@ -302,14 +330,20 @@ class BulkOps::Parser
   def interpret_relationship_value id_type, value, field="parent"
     #Handle "id:20kj4259" syntax if it hasn't already been handled
     if (split = value.to_s.split(":")).count == 2
-      id_type = split.first
+      id_type, value = split.first
       value = split.last
     end
     #Handle special shorthand syntax for refering to relative row numbers
     if id_type == "row"
-      if value.to_i < 0
+      #if the value is an integer
+      if value =~ /\A[-+]?[0-9]+\z/
+        if value.to_i < 0
         # if given a negative integer, count backwards from the current row (remember that value.to_i is negative)
-        return [id_type,row_number + value.to_i]
+          return [id_type,row_number + value.to_i]
+        elsif value.to_i > 0
+          # if given a positive integer, remove the row offset
+          value = (value.to_i - BulkOps::ROW_OFFSET).to_s
+        end
       elsif value.to_s.downcase.include?("prev")
         # if given any variation of the word "previous", get the first preceding row with no parent of its own
         return [id_type,find_previous_parent(field)]
