@@ -41,7 +41,7 @@ class BulkOps::Relationship < ActiveRecord::Base
       return ActiveFedora::Base.find(objects.first["id"])
     when "row"
       object_proxy = BulkOps::WorkProxy.find_by(operation_id: work_proxy.operation_id, 
-                                                row_number: (object_identifier.to_i - 2))
+                                                row_number: (object_identifier.to_i))
       ActiveFedora::Base.find(object_proxy.work_id)
     when "proxy_id"
       return false unless (proxy = BulkOps::WorkProxy.find(proxy_id))
