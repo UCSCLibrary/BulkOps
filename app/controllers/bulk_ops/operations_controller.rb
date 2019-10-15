@@ -132,7 +132,7 @@ module BulkOps
 
     def new
       @default_fields = BulkOps::Operation.default_metadata_fields + ['id','collection','filename']
-      @all_fields = (BulkOps::Operation.default_metadata_fields + BulkOps::Operation::SPECIAL_COLUMNS)
+      @all_fields = (BulkOps::Operation.default_metadata_fields + BulkOps::SPECIAL_COLUMNS)
     end
 
     def show
@@ -452,6 +452,7 @@ module BulkOps
     end
 
     def github_auth
+      puts "CURRENT_USER email: #{current_user.email}"
       @github_username = BulkOps::GithubAccess.username current_user
       @github_authenticated = @github_username.is_a? String
       cred = BulkOps::GithubCredential.find_by(user_id: current_user.id)
