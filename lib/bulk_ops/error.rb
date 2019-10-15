@@ -118,7 +118,7 @@ class BulkOps::Error
       end
 
     when :bad_object_reference 
-      message = "\n-- Error: bad object reference --\m" 
+      message = "\n-- Error: bad object reference --\n" 
       message += "We enountered #{errors.count} problems resolving object references.\n"
       if errors.count < max_error
          message += "The row numbers with problems were:\n"
