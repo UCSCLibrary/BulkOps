@@ -31,9 +31,9 @@ module BulkOps
       end
     end
 
-    def is_file_field?(fieldname)
+    def self.is_file_field?(fieldname)
       return false if fieldname.blank?
-      return false if schema.get_field(fieldname)
+      return false if ScoobySnacks::METADATA_SCHEMA.get_field(fieldname)
       field_parts = fieldname.underscore.humanize.downcase.gsub(/[-_]/,' ').split(" ")
       return false unless field_parts.any?{ |field_type| BulkOps::FILE_FIELDS.include?(field_type) }
       return "remove" if field_parts.any?{ |field_type| ['remove','delete'].include?(field_type) }
@@ -46,7 +46,7 @@ module BulkOps
       name.gsub!(/[_\s-]?[lL]abel$/,'')
       name.gsub!(/^[rR]emove[_\s-]?/,'')
       name.gsub!(/^[dD]elete[_\s-]?/,'')
-      possible_fields = (Work.attribute_names + schema.all_field_names).uniq
+      possible_fields = ((Work.attribute_names || []) + schema.all_field_names).uniq
       matching_fields = possible_fields.select{|pfield| pfield.gsub(/[_\s-]/,'').parameterize == name.gsub(/[_\s-]/,'').parameterize }
       return false if matching_fields.blank?
       #      raise Exception "Ambiguous metadata fields!" if matching_fields.uniq.count > 1
@@ -72,7 +72,7 @@ module BulkOps
     def verify_files 
       file_errors = []
       get_spreadsheet.each_with_index do |row, row_num|
-        file_fields = row.select { |field, value| is_file_field?(field) }
+        file_fields = row.select { |field, value| BulkOps::Verification.is_file_field?(field) }
         file_fields.each do |column_name, filestring|
           next if filestring.blank? or column_name == filestring
           get_file_paths(filestring).each do |filepath|
@@ -103,7 +103,8 @@ module BulkOps
     end
 
     def downcase_first_letter(str)
-      str[0].downcase + str[1..-1]
+      return nil unless str.present?
+      (str[0].downcase || "") + str[1..-1]
     end
 
     # Make sure the headers in the spreadsheet are matching to properties
@@ -188,7 +189,7 @@ module BulkOps
     def verify_internal_references
       # TODO 
       # This is sketchy. Redo it.
-      (metadata = get_spreadsheet).each do |row,row_num|
+      (metadata = get_spreadsheet).each_with_index do |row,row_num|
         ref_id = get_ref_id(row)
         BulkOps::RELATIONSHIP_COLUMNS.each do |relationship|
           next unless (obj_id = row[relationship])
@@ -197,16 +198,15 @@ module BulkOps
             obj_id = split[1]
           end
           
-          if ref_id == "row" || (ref_id == "id/row" && obj_id.is_a?(Integer))
-            obj_id = obj_id.to_i
-            # This is a row number reference. It should be an integer in the range of possible row numbers.
-            unless obj_id.present? && (obj_id > 0) && (obj_id <= metadata.count)
-              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + ROW_OFFSET})
+          if ref_id == "row" || (ref_id.include?("row") && obj_id.is_a?(Integer))
+            # This is a row number reference. It should be an integer or a string including "prev"
+            unless obj_id.present?  && ((obj_id =~ /\A[-+]?[0-9]+\z/) or (obj_id.strip.downcase.include?("prev") ))
+              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + BulkOps::ROW_OFFSET})
             end  
-          elsif ref_id == "id" || ref_id == "hyrax id" || (ref_id == "id/row" && (obj_id.is_a? Integer))
+          elsif ref_id.include?("id")
             # This is a hydra id reference. It should correspond to an object already in the repo
             unless record_exists?(obj_id)
-              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num+ROW_OFFSET})
+              @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + BulkOps:: ROW_OFFSET})
             end
           end
         end      
