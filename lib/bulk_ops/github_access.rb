@@ -212,16 +212,16 @@ class BulkOps::GithubAccess
     client.merge_pull_request(repo, pull_id, message)
   end
 
-  def get_metadata_row row_number
-    @current_metadata ||= load_metadata
-    @current_metadata[row_number - BulkOps::ROW_OFFSET]
-  end
-  
-  def get_past_metadata_row commit_sha, row_number
-    past_metadata = Base64.decode64( client.contents(repo, path: filename, ref: commit_sha) )
-    past_metadata[row_number - BulkOps::ROW_OFFSET]
-  end
-
+#  def get_metadata_row row_number
+#    @current_metadata ||= load_metadata
+#    @current_metadata[row_number - BulkOps::ROW_OFFSET]
+#  end
+#  
+#  def get_past_metadata_row commit_sha, row_number
+#    past_metadata = Base64.decode64( client.contents(repo, path: filename, ref: commit_sha) )
+#    past_metadata[row_number - BulkOps::ROW_OFFSET]
+#  end
+#
   def get_file filename
     client.contents(repo, path: filename, ref: name)
   end
