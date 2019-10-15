@@ -9,9 +9,9 @@ class BulkOps::Parser
     return false unless metadata[row_number].present?
 #    If there are any valid fields other than relationship or file fields, it is a work
     metadata[row_number].each do |field, value|
-      next if is_file_field?(field)
-      next if ["parent", "order"].include(normalize_relationship_field_name(field))
-      next if ["title","label"].include(field.downcase.strip)
+      next if BulkOps::Verification.is_file_field?(field)
+      next if ["parent", "order"].include?(normalize_relationship_field_name(field))
+      next if ["title","label"].include?(field.downcase.strip)
       return false
     end
     return true
@@ -173,7 +173,7 @@ class BulkOps::Parser
       next if field == value
 
       # Check if this is a file field, and whether we are removing or adding a file
-      next unless (action = is_file_field?(field))
+      next unless (action = BulkOps::Verification.is_file_field?(field))
       
       # Move on if this field is the name of another property (e.g. masterFilename)
       next if find_field_name(field)
@@ -203,7 +203,7 @@ class BulkOps::Parser
         child_row.each do |field,value|
           next if value.blank?
           title = value if ["title","label"].include?(field.downcase.strip)
-          if is_file_field?(field)
+          if BulkOps::Verification.is_file_field?(field)
             operation.get_file_paths(value).each do |filepath|
               uploaded_file = Hyrax::UploadedFile.create(file:  File.open(filepath), user: operation.user)
             end
@@ -269,7 +269,7 @@ class BulkOps::Parser
         relationship_type = field
       end
 
-      relationship_type = normalize_relationship_field_name(relationship_type)
+      relationship_type = self.class.normalize_relationship_field_name(relationship_type)
       case relationship_type
       when "order"
         # If the field specifies the object's order among siblings 
@@ -312,7 +312,7 @@ class BulkOps::Parser
     @raw_row = row
   end
 
-  def normalize_relationship_field_name field
+  def self.normalize_relationship_field_name field
     normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
     BulkOps::RELATIONSHIP_FIELDS.find{|rel_field| normfield == rel_field }
   end
@@ -459,11 +459,6 @@ class BulkOps::Parser
     BulkOps::DeleteFileSetJob.perform_later(fileset_id, operation.user.email )
   end
  
-  
-  def is_file_field? field
-    operation.is_file_field? field
-  end
-
   def record_exists? id
     operation.record_exists? id
   end
