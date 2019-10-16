@@ -97,7 +97,7 @@ module BulkOps
       # make sure the work proxies we just created are loaded in memory
       reload
       #loop through the work proxies to create a job for each work
-      @metadata.dup.each_with_index do |values,row_number|
+      @metadata.each_with_index do |values,row_number|
         proxy = work_proxies.find_by(row_number: row_number)
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
         data = BulkOps::Parser.new(proxy, @metadata).interpret_data(raw_row: values)
