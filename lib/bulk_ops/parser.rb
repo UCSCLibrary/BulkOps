@@ -20,7 +20,7 @@ class BulkOps::Parser
   def initialize prx, metadata_sheet=nil
     @proxy = prx
     @raw_data = (metadata_sheet || proxy.operation.metadata)
-    @raw_row = @raw_data[@proxy.row_number].dup
+    @raw_row = @raw_data[@proxy.row_number]
     @metadata = {}
     @parsing_errors = []
   end
@@ -29,13 +29,13 @@ class BulkOps::Parser
     @raw_row = raw_row if raw_row.present?
     @proxy = proxy if proxy.present?
     @raw_data = raw_data if raw_data.present?
+    disambiguate_columns
     setAdminSet
     #The order here matters a little: interpreting the relationship fields specifies containing collections,
     # which may have opinions about whether we should inherit metadata from parent works
     interpret_relationship_fields
     setMetadataInheritance
     interpret_option_fields
-    disambiguate_columns
     interpret_file_fields
     interpret_controlled_fields
     interpret_scalar_fields
@@ -54,8 +54,7 @@ class BulkOps::Parser
       # separate values in identical columns using the separator
       row[header] = (Array(row[header]) << value).join(BulkOps::SEPARATOR)
     end
-    #return a hash with identical columns merged
-    return row
+    @raw_row = row
   end
 
   def interpret_controlled_fields 
@@ -67,7 +66,6 @@ class BulkOps::Parser
     # This hash is populated with relevant data as we loop through the fields
     controlled_data = {}
 
-    row = @raw_row.dup
     @raw_row.each do |field_name, value| 
       next if value.blank?  or field_name.blank?
       field_name = field_name.to_s
@@ -122,10 +120,8 @@ class BulkOps::Parser
                        row_number: row_number) unless value_id
         end
         controlled_data[field_name_norm] << {id: value_id, remove: field_name.downcase.starts_with?("remove")}
-        row.delete(field_name)
       end
     end
-    @raw_row = row    
 
     # Actually add all the data
     controlled_data.each do |property_name, data|
@@ -139,8 +135,7 @@ class BulkOps::Parser
   end
 
   def interpret_scalar_fields
-    row = @raw_row.dup
-    @raw_row.each do |field, values| 
+     @raw_row.each do |field, values| 
       next if values.blank? or field.nil? or field == values
       # get the field name, if this column is a metadata field
       next unless field_name = find_field_name(field.to_s)
@@ -152,11 +147,9 @@ class BulkOps::Parser
         value = value.strip.encode('utf-8', :invalid => :replace, :undef => :replace, :replace => '_') unless value.blank?
         value = unescape_csv(value)
         (@metadata[field_name] ||= []) << value
-        row.delete(field)
-      end
+       end
     end
-    @raw_row = row
-  end
+   end
 
   def interpret_file_fields
     # This method handles file additions and deletions from the spreadsheet
@@ -165,7 +158,6 @@ class BulkOps::Parser
     # by the BulkOps::Operation.
     #
 
-    row = @raw_row.dup
     @raw_row.each do |field, value|
       next if value.blank?  or field.blank?
       field = field.to_s
@@ -187,7 +179,6 @@ class BulkOps::Parser
           begin
             uploaded_file = Hyrax::UploadedFile.create(file:  File.open(filepath), user: operation.user)
             (@metadata[:uploaded_files] ||= []) << uploaded_file.id unless uploaded_file.id.nil?
-            row.delete(field)
           rescue Exception => e  
             report_error(:upload_error,
                          message: "Error opening file: #{ filepath } -- #{e}",
@@ -213,11 +204,9 @@ class BulkOps::Parser
       end
 
     end
-    @raw_row = row
   end
 
   def interpret_option_fields
-    row = @raw_row.dup
     @raw_row.each do |field,value|
       next if value.blank? or field.blank?
       field = field.to_s
@@ -226,11 +215,10 @@ class BulkOps::Parser
       normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
       if ["visibility", "public"].include?(normfield)
         @proxy.update(visibility: format_visibility(value))
-        row.delete(field)
+
       end
       if ["worktype","model","type"].include?(normfield)
         @proxy.update(work_type: format_worktype(value) )
-        row.delete(field)
       end
       if ["referenceidentifier", 
           "referenceid", 
@@ -245,14 +233,11 @@ class BulkOps::Parser
           "relid",
           "relidtype"].include?(normfield)
         @proxy.update(reference_identifier: format_reference_id(value))
-        row.delete(field)
       end
     end
-    @raw_row = row
   end
 
   def interpret_relationship_fields
-    row = @raw_row.dup
     @raw_row.each do |field,value|
       next if value.blank?  or field.blank?
       field = field.to_s              
@@ -274,14 +259,12 @@ class BulkOps::Parser
       when "order"
         # If the field specifies the object's order among siblings 
         @proxy.update(order: value.to_f)
-        row.delete(field)
         next
       when "collection"
         # If the field specifies the name or ID of a collection,
         # find or create the collection and update the metadata to match
         col = find_or_create_collection(value)
         ( @metadata[:member_of_collection_ids] ||= [] ) << col.id if col
-        row.delete field
         next
       when "parent", "child"
         
@@ -306,10 +289,8 @@ class BulkOps::Parser
           end
         end
         BulkOps::Relationship.create(relationship_parameters)
-        row.delete field
       end
     end
-    @raw_row = row
   end
 
   def self.normalize_relationship_field_name field
