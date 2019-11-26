@@ -14,7 +14,6 @@ class BulkOps::Parser
     end
 #    Otherwise, if there are any valid fields other than relationship or file fields, call it a work
     metadata[row_number].each do |field, value|
-      return true if 
       next if BulkOps::Verification.is_file_field?(field)
       next if ["parent", "order"].include?(normalize_relationship_field_name(field))
       next if ["title","label"].include?(field.downcase.strip)
