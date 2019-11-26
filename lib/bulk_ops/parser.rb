@@ -7,8 +7,14 @@ class BulkOps::Parser
 
   def self.is_file_set? metadata, row_number
     return false unless metadata[row_number].present?
-#    If there are any valid fields other than relationship or file fields, it is a work
+    # If the work type is explicitly specified, use that
+    if (type_key = metadata.keys.find{|key| key.downcase.gsub(/[_\-\s]/,"").include?("worktype") })
+      return true if metadata[type_key].downcase == "fileset" 
+      return false if metadata[type_key].present?
+    end
+#    Otherwise, if there are any valid fields other than relationship or file fields, call it a work
     metadata[row_number].each do |field, value|
+      return true if 
       next if BulkOps::Verification.is_file_field?(field)
       next if ["parent", "order"].include?(normalize_relationship_field_name(field))
       next if ["title","label"].include?(field.downcase.strip)
@@ -39,6 +45,7 @@ class BulkOps::Parser
     interpret_file_fields
     interpret_controlled_fields
     interpret_scalar_fields
+    connect_existing_work 
     @proxy.update(status: "ERROR", message: "error parsing spreadsheet line") if @parsing_errors.present?
     @proxy.proxy_errors = (@proxy.proxy_errors || []) + @parsing_errors
     return @metadata
@@ -55,6 +62,21 @@ class BulkOps::Parser
       row[header] = (Array(row[header]) << value).join(BulkOps::SEPARATOR)
     end
     @raw_row = row
+  end
+
+  def connect_existing_work
+    return unless (column_name = operation.options["update_identifier"])
+    return unless (key = @raw_row.keys.find{|key| key.to_s.parameterize.downcase.gsub("_","") == column_name.to_s.parameterize.downcase.gsub("_","")})
+    return unless (value = @raw_row[key])
+    return unless (work_id = find_work_id_from_unique_metadata(key, value)) 
+    proxy.update(work_id: work_id)
+  end
+
+  def find_work_id_from_unique_metadata field_name, value
+    field_solr_name = schema.get_field(field_name).solr_name
+    query = "_query_:\"{!raw f=#{field_name}}#{value}\""
+    response = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path, params: { fq: query, rows: 1, start: 0})["response"]
+    return response["docs"][0]["id"]
   end
 
   def interpret_controlled_fields 

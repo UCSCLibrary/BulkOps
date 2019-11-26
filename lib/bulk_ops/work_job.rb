@@ -60,6 +60,20 @@ class BulkOps::WorkJob < ActiveJob::Base
 
   private
 
+
+  def define_work
+    if proxy.work_id.present? && record_exists? proxy.work_id
+      begin
+        @work = ActiveFedora::Base.find(@work_proxy.work_id)
+      rescue ActiveFedora::ObjectNotFoundError
+        report_error "Could not find work to update in Fedora (though it shows up in Solr). Work id: #{@work_proxy.work_id}"
+        return false
+      end
+    else
+      @work = workClass.capitalize.constantize.new
+    end
+  end
+
   def record_exists? id
     begin
       return true if SolrDocument.find(id)

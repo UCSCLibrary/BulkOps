@@ -102,7 +102,7 @@ module BulkOps
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
         data = BulkOps::Parser.new(proxy, @metadata).interpret_data(raw_row: values)
         next unless proxy.proxy_errors.blank?
-        BulkOps::CreateWorkJob.perform_later(proxy.work_type || "Work",
+        BulkOps::WorkJob.perform_later(proxy.work_type || "Work",
                                              user.email,
                                              data,
                                              proxy.id,
