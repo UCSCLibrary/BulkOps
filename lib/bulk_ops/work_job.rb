@@ -62,7 +62,7 @@ class BulkOps::WorkJob < ActiveJob::Base
 
 
   def define_work
-    if proxy.work_id.present? && record_exists? proxy.work_id
+    if (@work_proxy.present? && @work_proxy.work_id.present? && record_exists?(@work_proxy.work_id))
       begin
         @work = ActiveFedora::Base.find(@work_proxy.work_id)
       rescue ActiveFedora::ObjectNotFoundError
