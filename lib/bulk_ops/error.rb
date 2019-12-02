@@ -137,6 +137,30 @@ class BulkOps::Error
         message += "An example of a missing filename is: #{errors.first.file}\n"
       end
       
+   when :relationship_error
+      message = "\n-- Errors resolving relationships --\n "
+      message += "There were issues resolving #{errors.count} relationships.\n"
+      if errors.count < max_error
+        message += "errors:\n"
+        message += errors.map{|er| "Row #{er.row_number}, relationship ##{er.object_id}: #{er.message}"}.join("\n")
+      else
+        message += "An example of an error is: Row #{er.first.row_number}, relationship ##{er.first.object_id}: #{er.first.message}\n"
+      end
+      
+    when :ingest_failure
+      message = "\n-- Ingested File is Broken or Missing --\n "
+      message += "After the ingest completed, we had issues finding and re-saving the ingested works associated with #{errors.count} rows.\n"
+      if errors.count < max_error
+        message += "Problem rows:\n"
+        message += errors.map{|er| "#{er.row_number} - proxy ##{er.object_id}"}.join("\n")
+      else
+        message += "An example of a failed ingest is row #{errors.first.row_number} with work proxy #{errors.first.object_id} \n"
+      end
+
+    else
+
+      message = "There were some errors"
+      
     end
     return message
   end
