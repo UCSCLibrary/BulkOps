@@ -8,9 +8,9 @@ class BulkOps::Parser
   def self.is_file_set? metadata, row_number
     return false unless metadata[row_number].present?
     # If the work type is explicitly specified, use that
-    if (type_key = metadata.keys.find{|key| key.downcase.gsub(/[_\-\s]/,"").include?("worktype") })
-      return true if metadata[type_key].downcase == "fileset" 
-      return false if metadata[type_key].present?
+    if (type_key = metadata[row_number].to_h.keys.find{|key| key.downcase.gsub(/[_\-\s]/,"").include?("worktype") })
+      return true if metadata[row_number][type_key].downcase == "fileset" 
+      return false if metadata[row_number][type_key].present?
     end
 #    Otherwise, if there are any valid fields other than relationship or file fields, call it a work
     metadata[row_number].each do |field, value|
