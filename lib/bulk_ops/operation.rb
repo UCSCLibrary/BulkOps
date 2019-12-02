@@ -125,18 +125,26 @@ module BulkOps
       update(stage: "finishing")
 
       # Attempt to resolve each dangling (objectless) relationships
-      BulkOps::Relationship.where(:status => "pending").each do |relationship|
-        relationship.resolve! if relationship.work_proxy.operation_id == id
+      relationships = work_proxies.reduce([]){|all_rels,proxy| all_rels + proxy.relationships.select{|rel| rel.status == "pending"}}
+      relationships.each do |rel| 
+        begin
+          rel.resolve! 
+        rescue StandardError => e
+          @operation_errors << BulkOps::Error.new(:relationship_error, row_number: proxy.row_number, object_id: relationship.id, message: "#{e.class} - #{e.message}" )
+        end
       end
       
-      work_proxies.each do |proxy|
-        wrk = Work.find(proxy.work_id)
-        wrk.save if wrk.members.any?{|mem| mem.class.to_s != "FileSet"}
-        sd = SolrDocument.find(wrk.id)
-        wrk.save if sd['hasRelatedImage_ssim'].present? && sd['relatedImageId_ss'].blank?
+      work_proxies.each do |proxy| 
+        work = nil
+        begin
+          work = Work.find(proxy.work_id).save
+        rescue StandardError => e
+          @operation_errors << BulkOps::Error.new(:ingest_failure, row_number: proxy.row_number, object_id: proxy.id, message: "#{e.class} - #{e.message}")
+        end
       end
 
-      update(stage: (accumulated_errors.blank? ? "complete" : "errors" ))
+      new_stage = accumulated_errors.blank? ? "complete" : "errors"
+      update(stage: new_stage)
       report_errors!
       lift_holds
     end
@@ -284,9 +292,9 @@ module BulkOps
     end
 
     def busy?
-      return true if work_proxies.where(status: "running").count > 0
-      return true if work_proxies.where(status: "queued").count > 0
-      return true if work_proxies.where(status: "starting").count > 0
+      return true if work_proxies.any?(status: "running")
+      return true if work_proxies.any?(status: "queued")
+      return true if work_proxies.any?(status: "starting")
       return false
     end
 
