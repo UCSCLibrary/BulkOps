@@ -292,9 +292,9 @@ module BulkOps
     end
 
     def busy?
-      return true if work_proxies.any?(status: "running")
-      return true if work_proxies.any?(status: "queued")
-      return true if work_proxies.any?(status: "starting")
+      return true if work_proxies.any?{|prx| prx.status.downcase == "running"}
+      return true if work_proxies.any?{|prx| prx.status.downcase == "queued"}
+      return true if work_proxies.any?{|prx| prx.status.downcase == "starting"}
       return false
     end
 
