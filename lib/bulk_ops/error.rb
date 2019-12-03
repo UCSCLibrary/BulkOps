@@ -157,10 +157,17 @@ class BulkOps::Error
         message += "An example of a failed ingest is row #{errors.first.row_number} with work proxy #{errors.first.object_id} \n"
       end
 
-    else
+    when :id_not_unique
+      message = "\n-- Multiple works shared a supposedly unique identifier, and we don't know which one to edit --\n "
+      if errors.count < max_error
+        message += "Problem rows:\n"
+        message += errors.map{|er| "#{er.row_number} - proxy ##{er.object_id} - #{er.options_name}: #{er.option_values}"}.join("\n")
+      else
+        message += "An example of a row that identifies multiple works is #{errors.first.row_number} with work proxy #{errors.first.object_id} using the identifier:  #{er.options_name} - #{er.option_values} \n"
+      end
 
-      message = "There were some errors"
-      
+    else
+      message = "\n-- There were other errors of an unrecognized type. Check the application logs --\n "      
     end
     return message
   end
