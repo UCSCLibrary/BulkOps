@@ -23,7 +23,11 @@ class BulkOps::WorkJob < ActiveJob::Base
       # Delete any UploadedFiles. These take up tons of unnecessary disk space.
       @work.file_sets.each do |fileset|
         if uf = Hyrax::UploadedFile.find_by(file: fileset.label)
-          uf.destroy!
+          begin
+            uf.destroy!
+          rescue StandardError => e
+            Rails.logger.warn("Could not delete uploaded file. #{e.class} - #{e.message}")
+          end
         end
       end
 
@@ -49,28 +53,30 @@ class BulkOps::WorkJob < ActiveJob::Base
       return
     end
 
-    return unless define_work(workClass)
+    return unless (work_action = define_work(workClass))
 
     user = User.find_by_email(user_email)
     update_status "running", "Started background task at #{DateTime.now.strftime("%d/%m/%Y %H:%M")}"
     ability = Ability.new(user)
     env = Hyrax::Actors::Environment.new(@work, ability, attributes)
-    update_status "complete", Hyrax::CurationConcern.actor.send(type,env)
+    update_status "complete", Hyrax::CurationConcern.actor.send(work_action,env)
   end
 
   private
 
 
-  def define_work
+  def define_work(workClass="Work")
     if (@work_proxy.present? && @work_proxy.work_id.present? && record_exists?(@work_proxy.work_id))
       begin
         @work = ActiveFedora::Base.find(@work_proxy.work_id)
+        return :update
       rescue ActiveFedora::ObjectNotFoundError
         report_error "Could not find work to update in Fedora (though it shows up in Solr). Work id: #{@work_proxy.work_id}"
         return false
       end
     else
       @work = workClass.capitalize.constantize.new
+      return :ingest
     end
   end
 
