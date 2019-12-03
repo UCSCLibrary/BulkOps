@@ -73,8 +73,11 @@ class BulkOps::Parser
 
   def find_work_id_from_unique_metadata field_name, value
     field_solr_name = schema.get_field(field_name).solr_name
-    query = "_query_:\"{!raw f=#{field_name}}#{value}\""
+    query = "_query_:\"{!dismax qf=#{field_solr_name}}#{value}\""
     response = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path, params: { fq: query, rows: 1, start: 0})["response"]
+    if response["numFound"] > 1
+      report_error( :id_not_unique , "",  row_number: row_number, object_id: @proxy.id, options_name: field_name, option_values: value ) unless label
+    end
     return response["docs"][0]["id"]
   end
 
