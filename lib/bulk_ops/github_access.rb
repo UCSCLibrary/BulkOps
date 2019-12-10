@@ -2,7 +2,7 @@ require "octokit"
 require "socket"
 require "securerandom"
 require 'base64'
-
+require 'erb'
 class BulkOps::GithubAccess
 
   attr_accessor :name
@@ -272,8 +272,6 @@ class BulkOps::GithubAccess
   end
 
   def github_config
-    @github_config ||=  YAML.load_file("#{Rails.root.to_s}/config/github.yml")[Rails.env]
+    @github_config ||= YAML.load(ERB.new(File.read("#{Rails.root}/config/github.yml")).result)[Rails.env]
   end
-
-
 end
