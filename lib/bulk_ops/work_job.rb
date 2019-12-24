@@ -76,7 +76,7 @@ class BulkOps::WorkJob < ActiveJob::Base
       end
     else
       @work = workClass.capitalize.constantize.new
-      return :ingest
+      return :create
     end
   end
 
@@ -103,11 +103,6 @@ class BulkOps::WorkJob < ActiveJob::Base
     atts = {status: stat}
     atts[:message] = message if message
     @work_proxy.update(atts)
-  end
-
-  def define_work(workClass)
-    #override this unless you want a simple ingest
-    @work = workClass.capitalize.constantize.new
   end
 
 end
