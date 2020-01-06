@@ -1,3 +1,4 @@
+
 class BulkOps::Parser
   require 'uri'
 
@@ -8,7 +9,7 @@ class BulkOps::Parser
   def self.is_file_set? metadata, row_number
     return false unless metadata[row_number].present?
     # If the work type is explicitly specified, use that
-    if (type_key = metadata[row_number].to_h.keys.find{|key| key.downcase.gsub(/[_\-\s]/,"").include?("worktype") })
+    if (type_key = metadata[row_number].to_h.keys.find{|key| key.to_s.downcase.gsub(/[_\-\s]/,"").include?("worktype") })
       return true if metadata[row_number][type_key].downcase == "fileset" 
       return false if metadata[row_number][type_key].present?
     end
@@ -57,6 +58,7 @@ class BulkOps::Parser
     (0...@raw_row.length).each do |i|
       header = @raw_row.headers[i]
       value = @raw_row[i]
+      next unless value.present?
       # separate values in identical columns using the separator
       row[header] = (Array(row[header]) << value).join(BulkOps::SEPARATOR)
     end
@@ -65,9 +67,9 @@ class BulkOps::Parser
 
   def connect_existing_work
     return unless (column_name = operation.options["update_identifier"])
-    return unless (key = @raw_row.keys.find{|key| key.to_s.parameterize.downcase.gsub("_","") == column_name.to_s.parameterize.downcase.gsub("_","")})
-    return unless (value = @raw_row[key])
-    return unless (work_id = find_work_id_from_unique_metadata(key, value)) 
+    return unless (key = @raw_row.to_h.keys.find{|key| key.to_s.parameterize.downcase.gsub("_","") == column_name.to_s.parameterize.downcase.gsub("_","")})
+    return unless (value = @raw_row[key]).present?
+    return unless (work_id = find_work_id_from_unique_metadata(key, value))
     proxy.update(work_id: work_id)
   end
 
@@ -76,7 +78,7 @@ class BulkOps::Parser
     query = "_query_:\"{!dismax qf=#{field_solr_name}}#{value}\""
     response = ActiveFedora::SolrService.instance.conn.get(ActiveFedora::SolrService.select_path, params: { fq: query, rows: 1, start: 0})["response"]
     if response["numFound"] > 1
-      report_error( :id_not_unique , "",  row_number: row_number, object_id: @proxy.id, options_name: field_name, option_values: value ) unless label
+      report_error( :id_not_unique , "",  row_number: row_number, object_id: @proxy.id, options_name: field_name, option_values: value )
     end
     return response["docs"][0]["id"]
   end
