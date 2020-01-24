@@ -13,7 +13,7 @@ class BulkOps::UpdateWorkJob < BulkOps::WorkJob
 
   def define_work workClass=nil
     # report an error if we can't find the work in solr
-    unless record_exists?(@work_proxy.work_id)
+    unless BulkOps::SolrService.record_exists?(@work_proxy.work_id)
       report_error "Could not find work to update with id: #{@work_proxy.work_id} referenced by work proxy: #{@work_proxy.id}"  
       return false
     end

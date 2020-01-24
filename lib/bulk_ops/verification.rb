@@ -59,14 +59,6 @@ module BulkOps
       filenames.map { |filename| File.join(BulkOps::INGEST_MEDIA_PATH, options['file_prefix'] || "", filename) }
     end
 
-    def record_exists? id
-      begin
-        return true if SolrDocument.find(id)
-      rescue Blacklight::Exceptions::RecordNotFound
-        return false
-      end
-    end
-
     private
 
     def verify_files 
@@ -165,7 +157,7 @@ module BulkOps
       get_spreadsheet.each_with_index do |row, row_num|
         id = get_ref_id(row)
         #TODO: find by other field. for now just id
-        unless (record_exists(id))
+        unless (BulkOps::SolrService.record_exists?(id))
           @verification_errors << BulkOps::Error.new(type: :cannot_find_work, id: id)
         end
       end
@@ -205,7 +197,7 @@ module BulkOps
             end  
           elsif ref_id.include?("id")
             # This is a hydra id reference. It should correspond to an object already in the repo
-            unless record_exists?(obj_id)
+            unless BulkOps::SolrService.record_exists?(obj_id)
               @verification_errors << BulkOps::Error.new({type: :bad_object_reference, object_id: obj_id, row_number: row_num + BulkOps:: ROW_OFFSET})
             end
           end
