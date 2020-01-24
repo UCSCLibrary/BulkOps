@@ -8,5 +8,7 @@ class RemoveRelationshipsAmmendWorkProxy < ActiveRecord::Migration[5.0]
       t.integer :previous_sibling_id
     end
 
+    remove_column :bulk_ops_operations, :operation_type
+
   end
 end
