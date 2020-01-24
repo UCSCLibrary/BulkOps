@@ -13,11 +13,25 @@ class BulkOps::WorkJob < ActiveJob::Base
       update_status "error"
     else
       @work_proxy.work_id = @work.id
-      update_status "complete"
+      
+      # If this work has a parent outside of the current operation,
+      # and this is the first sibling (we only need to do this once per parent),
+      # queue a job to resolve that work's new children
+      if @work_proxy.parent_id.present? && (parent_proxy = BulkOps::WorkProxy.find(parent_id))
+        if parent_proxy.operation_id != @work_proxy.operation_id
+          if @work_proxy.previous_sibling.nil?
+            BulkOps::ResolveChildrenJob.set(wait: 10.minutes).perform_later(parent_proxy.id)
+          end
+        end
+      end
 
-      # Attempt to resolve all of the relationships defined in this row   
-      @work_proxy.relationships.each do |relationship|
-        relationship.resolve!
+      # Set up jobs to link child works (once they are ingested)
+      # or mark as complete otherwise
+      if (children = @work_proxy.ordered_children)
+        BulkOps::ResolveChildrenJob.perform_later(@work_proxy.id)
+        update_status "awaiting_children"
+      else
+        update_status "complete"
       end
 
       # Delete any UploadedFiles. These take up tons of unnecessary disk space.
@@ -52,6 +66,7 @@ class BulkOps::WorkJob < ActiveJob::Base
       report_error("Cannot find work proxy with id: #{work_proxy_id}") 
       return
     end
+    return if @work_proxy.status == "complete"
 
     return unless (work_action = define_work(workClass))
 
@@ -66,7 +81,7 @@ class BulkOps::WorkJob < ActiveJob::Base
 
 
   def define_work(workClass="Work")
-    if (@work_proxy.present? && @work_proxy.work_id.present? && record_exists?(@work_proxy.work_id))
+    if (@work_proxy.present? && @work_proxy.work_id.present? && BulkOps::SolrService.record_exists?(@work_proxy.work_id))
       begin
         @work = ActiveFedora::Base.find(@work_proxy.work_id)
         return :update
@@ -77,14 +92,6 @@ class BulkOps::WorkJob < ActiveJob::Base
     else
       @work = workClass.capitalize.constantize.new
       return :create
-    end
-  end
-
-  def record_exists? id
-    begin
-      return true if SolrDocument.find(id)
-    rescue Blacklight::Exceptions::RecordNotFound
-      return false
     end
   end
 

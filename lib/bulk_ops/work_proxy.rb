@@ -2,7 +2,6 @@ class BulkOps::WorkProxy < ActiveRecord::Base
 
   self.table_name = "bulk_ops_work_proxies"
   belongs_to :operation, class_name: "BulkOps::Operation", foreign_key: "operation_id"
-  has_many :relationships, class_name: "BulkOps::Relationship"
 
   attr_accessor :proxy_errors
 
@@ -38,5 +37,22 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     @proxy_errors ||= []
   end
 
-  
+  def ordered_siblings
+    return nil unless (parent = BulkOps::WorkProxy.find(parent_id))
+    parent.ordered_children - self
+  end
+
+  def ordered_children
+    children = BulkOps::WorkProxy.where(parent_id: id)
+    ordered_kids = []
+    previous_id = nil
+    while ordered_kids.length < children.length do
+      next_child = children.find{|child| child.previous_sibling_id == previous_id}
+      break if (next_child.nil? or ordered_kids.include?(next_child))
+      previous_id = next_child.id
+      ordered_kids << next_child
+    end
+    ordered_kids = ordered_kids + (children - ordered_kids) if (children.length > ordered_kids.length)
+    ordered_kids
+  end
 end
