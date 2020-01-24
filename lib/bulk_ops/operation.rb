@@ -38,10 +38,6 @@ module BulkOps
       states
     end
 
-    def type
-      operation_type
-    end
-
     def self.schema
       ScoobySnacks::METADATA_SCHEMA
     end
@@ -62,45 +58,73 @@ module BulkOps
       update(stage: new_stage)
     end
 
-    def apply!
-      status = "#{type}ing"
-      update({stage: "running", message: "#{type.titleize} initiated by #{user.name || user.email}"})
-#      @stage = "running"
-      final_spreadsheet
- 
-# This commented line currently fails because it doesn't pull from the master branch by default
-# It's usually already verified, but maybe we should fix this for double-checking 
-# in the future
-#      return unless verify
+    def destroy_all_works_and_proxies
+      work_proxies.each do |proxy| 
+        if BulkOps::SolrService.record_exists?(proxy.work_id)
+          ActiveFedora::Base.find(work_id).destroy
+        end
+        proxy.destroy
+      end
+      update(stage: "waiting",
+             status: "reverted changes")
+  
+   end
 
-      apply_ingest! if ingest?
-      apply_update! if update?
+    def destroy_all_works
+      work_proxies.each do |proxy| 
+        if BulkOps::SolrService.record_exists?(proxy.work_id)
+          ActiveFedora::Base.find(work_id).destroy
+        end
+        proxy.update(status: "destroyed", message: "The work created by this proxy was destroyed by the user")
+      end
+      update(stage: "waiting",
+             status: "reverted changes")
     end
 
-    def apply_ingest! 
-      #Destroy any existing work proxies (which should not exist for an ingest). Create new proxies from finalized spreadsheet only.
-      work_proxies.each{|proxy| proxy.destroy!}
+    def destroy_all_proxies
+      work_proxies.each do |proxy| 
+        proxy.destroy
+      end
+      update(stage: "waiting",
+             status: "reverted changes")      
+    end
 
-      #create a work proxy for each work in the spreadsheet, creating filesets where appropriate
-      @metadata.each_with_index do |values,row_number|
+    def apply!
+      update({stage: "running", 
+              status: "OK",
+              message: "Bulk operation initiated by #{user.name || user.email}"})
+      # We should now on the master branch. Make sure the correct spreadsheet version is loaded
+      final_spreadsheet
+
+      # In case this operation has run before, gather all work proxies that are completed and exclude them from the application
+      complete_proxies = work_proxies.select{|proxy| proxy.status == "complete" && proxy.work_id.present?}
+      incomplete_row_numbers = Array(0..@metadata.length-1) - complete_proxies.map(&:row_number)
+
+      # Destroy all proxies corresponding to incomplete rows
+      (work_proxies - complete_proxies).each{proxy| proxy.destroy!}
+
+      # Create a new work proxy for incompplete row
+      # All the proxies need to exist before parsing in order to correctly recognize relationships
+      incomplete_row_numbers.each do |row_number|
+        values = @metadata[row_number]
         next if values.to_s.gsub(',','').blank?
-
-        next if BulkOps::Parser.is_file_set? @metadata, row_number
-
-        work_proxies.create(status: "queued",
+        next if BulkOps::Parser.is_file_set? @metadata, proxy.row_number
+        work_proxies.create(status: "new",
                             last_event: DateTime.now,
-                            row_number: row_number,
+                            work_type: work_type,
+                            row_number: proxy.row_number,
                             visibility: options['visibility'],
                             message: "created during ingest initiated by #{user.name || user.email}")
+ 
       end
-      
-      # make sure the work proxies we just created are loaded in memory
+      # Reload the operation so that it can recognize its new proxies
       reload
-      #loop through the work proxies to create a job for each work
-      @metadata.each_with_index do |values,row_number|
+      # Parse each spreadsheet row and create a background job for each proxy we just created
+      incomplete_row_numberss.each do |row_number|
+        values = @metadata[row_number]
         proxy = work_proxies.find_by(row_number: row_number)
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
-        data = BulkOps::Parser.new(proxy, @metadata).interpret_data(raw_row: values)
+        data = BulkOps::Parser.new(proxy, @metadata,options).interpret_data(raw_row: values)
         next unless proxy.proxy_errors.blank?
         BulkOps::WorkJob.perform_later(proxy.work_type || "Work",
                                              user.email,
@@ -110,13 +134,6 @@ module BulkOps
       end
       # If any errors have occurred, make sure they are logged in github and users are notified.
       report_errors!
-    end
-
-    def delete_all
-      work_proxies.each do |proxy| 
-        ActiveFedora::Base.find(proxy.work_id).destroy 
-        proxy.update(status: "destroyed", message: "The work created by this proxy was destroyed by the user")
-      end
     end
 
     def check_if_finished
@@ -208,7 +225,7 @@ module BulkOps
 
     def report_errors!
       error_file_name = BulkOps::Error.write_errors!(accumulated_errors, git)
-      notify!(subject: "Errors initializing bulk #{type} in Hycruz", message: "Hycruz encountered some errors while it  was setting up your #{type} and preparing to begin. For most types of errors, the individual rows of the spreadsheet with errors will be ignored and the rest will proceed. Please consult the #{type} summary for real time information on the status of the #{type}. Details about these initialization errors can be seen on Github at the following url: https://github.com/#{git.repo}/blob/#{git.name}/#{git.name}/errors/#{error_file_name}") if error_file_name
+      notify!(subject: "Errors initializing bulk operation in Hycruz", message: "Hycruz encountered some errors while it  was setting up your operation and preparing to begin. For most types of errors, the individual rows of the spreadsheet with errors will be ignored and the rest will proceed. Please consult the operation summary for real time information on the status of the operation. Details about these initialization errors can be seen on Github at the following url: https://github.com/#{git.repo}/blob/#{git.name}/#{git.name}/errors/#{error_file_name}") if error_file_name
     end
 
     def create_pull_request message: false
@@ -222,7 +239,7 @@ module BulkOps
       update(stage: "pending")
     end
 
-    def create_branch(fields: nil, work_ids: nil, options: nil, operation_type: :ingest)
+    def create_branch(fields: nil, work_ids: nil, options: nil)
       git.create_branch!
       bulk_ops_dir = Gem::Specification.find_by_name("bulk_ops").gem_dir
 
@@ -238,13 +255,12 @@ module BulkOps
         options.each { |option, value| full_options[option] = value }
 
         full_options[name] = name
-        full_options[type] = type
         full_options[status] = status
 
         git.update_options full_options
       end
 
-      create_new_spreadsheet(fields: fields, work_ids: work_ids) if operation_type == :ingest
+      create_new_spreadsheet(fields: fields, work_ids: work_ids) 
     end
 
     def get_spreadsheet return_headers: false
@@ -296,14 +312,6 @@ module BulkOps
       return true if work_proxies.any?{|prx| prx.status.downcase == "queued"}
       return true if work_proxies.any?{|prx| prx.status.downcase == "starting"}
       return false
-    end
-
-    def ingest?
-      type == "ingest"
-    end
-
-    def update?
-      type == "update"
     end
 
     def delete_branch
