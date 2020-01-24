@@ -196,7 +196,7 @@ class BulkOps::GithubAccess
 
   def create_pull_request message: false
     begin
-      message ||= "Apply update #{name} through Hyrax browser interface"
+      message ||= "Apply operation #{name} through Hyrax browser interface"
       pull = client.create_pull_request(repo, "master", name, message)
       pull["number"]
     rescue Octokit::UnprocessableEntity
