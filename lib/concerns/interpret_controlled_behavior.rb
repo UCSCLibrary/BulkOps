@@ -61,7 +61,6 @@ module BulkOps::InterpretControlledBehavior
                        url: value, 
                        row_number: row_number) unless value_id
         end
-        destroy? = 
         atts = {id: value_id}
         atts[:_destroy] = true if (field_name.downcase.starts_with?("remove") or field_name.downcase.starts_with?("delete"))
         controlled_data[field_name_norm] << atts
