@@ -106,11 +106,9 @@ module BulkOps::InterpretRelationshipsBehavior
   end
 
   def find_collection(collection)
-    puts "FINDING COLLECTION: #{collection}"
     cols = Collection.where(title: collection)
     cols += Collection.where(title: collection).select{|col| col.title.first == collection}
     cols += Collection.where(id: collection)
-    puts "COLLECTION: #{cols.last}"
     return cols.last unless cols.empty?
     return false
   end
