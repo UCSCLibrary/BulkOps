@@ -24,9 +24,9 @@ module BulkOps
 
     def index
       branches = BulkOps::GithubAccess.list_branch_names current_user
-      BulkOps::Operation.all.each{|op| op.destroy! unless branches.include?(op.name) }
+#      BulkOps::Operation.all.each{|op| op.destroy! unless branches.include?(op.name) }
       @active_operations = BulkOps::Operation.where.not(stage: ['completed','discarded'])
-      @active_operations.each {|op| op.destroy! unless (op.stage == "running") or branches.include?(op.name) }
+#      @active_operations.each {|op| op.destroy! unless (op.stage == "running") or branches.include?(op.name) }
       @old_operations = BulkOps::Operation.where(stage: ['completed','discarded']) if params["show_old_ops"]
     end
 
