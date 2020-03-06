@@ -1,4 +1,4 @@
-class SolrService
+class BulkOps::SolrService
   
   def self.record_exists? id
     begin
