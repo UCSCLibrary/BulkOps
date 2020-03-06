@@ -101,18 +101,18 @@ module BulkOps
       incomplete_row_numbers = Array(0..@metadata.length-1) - complete_proxies.map(&:row_number)
 
       # Destroy all proxies corresponding to incomplete rows
-      (work_proxies - complete_proxies).each{proxy| proxy.destroy!}
+      (work_proxies - complete_proxies).each{|proxy| proxy.destroy!}
 
-      # Create a new work proxy for incompplete row
+      # Create a new work proxy for each incomplete row
       # All the proxies need to exist before parsing in order to correctly recognize relationships
       incomplete_row_numbers.each do |row_number|
         values = @metadata[row_number]
         next if values.to_s.gsub(',','').blank?
-        next if BulkOps::Parser.is_file_set? @metadata, proxy.row_number
+        next if BulkOps::Parser.is_file_set? @metadata, row_number
         work_proxies.create(status: "new",
                             last_event: DateTime.now,
                             work_type: work_type,
-                            row_number: proxy.row_number,
+                            row_number: row_number,
                             visibility: options['visibility'],
                             message: "created during ingest initiated by #{user.name || user.email}")
  
@@ -120,7 +120,7 @@ module BulkOps
       # Reload the operation so that it can recognize its new proxies
       reload
       # Parse each spreadsheet row and create a background job for each proxy we just created
-      incomplete_row_numberss.each do |row_number|
+      incomplete_row_numbers.each do |row_number|
         values = @metadata[row_number]
         proxy = work_proxies.find_by(row_number: row_number)
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
