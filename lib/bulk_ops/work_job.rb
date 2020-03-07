@@ -14,39 +14,42 @@ class BulkOps::WorkJob < ActiveJob::Base
     else
       @work_proxy.work_id = @work.id
       
-      # If this work has a parent outside of the current operation,
-      # and this is the first sibling (we only need to do this once per parent),
-      # queue a job to resolve that work's new children
-      if @work_proxy.parent_id.present? && (parent_proxy = BulkOps::WorkProxy.find(parent_id))
-        if parent_proxy.operation_id != @work_proxy.operation_id
-          if @work_proxy.previous_sibling.nil?
-            BulkOps::ResolveChildrenJob.set(wait: 10.minutes).perform_later(parent_proxy.id)
+      unless @work_proxy.work_type == "Collection"
+
+        # If this work has a parent outside of the current operation,
+        # and this is the first sibling (we only need to do this once per parent),
+        # queue a job to resolve that work's new children
+        if @work_proxy.parent_id.present? && (parent_proxy = BulkOps::WorkProxy.find(parent_id))
+          if parent_proxy.operation_id != @work_proxy.operation_id
+            if @work_proxy.previous_sibling.nil?
+              BulkOps::ResolveChildrenJob.set(wait: 10.minutes).perform_later(parent_proxy.id)
+            end
           end
         end
-      end
 
-      # Set up jobs to link child works (once they are ingested)
-      # or mark as complete otherwise
-      if (children = @work_proxy.ordered_children)
-        BulkOps::ResolveChildrenJob.perform_later(@work_proxy.id)
-        update_status "awaiting_children"
-      else
-        update_status "complete"
-      end
+        # Set up jobs to link child works (once they are ingested)
+        # or mark as complete otherwise
+        if (children = @work_proxy.ordered_children)
+          BulkOps::ResolveChildrenJob.perform_later(@work_proxy.id)
+          update_status "awaiting_children"
+        else
+          update_status "complete"
+        end
 
-      # Delete any UploadedFiles. These take up tons of unnecessary disk space.
-      @work.file_sets.each do |fileset|
-        if uf = Hyrax::UploadedFile.find_by(file: fileset.label)
-          begin
-            uf.destroy!
-          rescue StandardError => e
-            Rails.logger.warn("Could not delete uploaded file. #{e.class} - #{e.message}")
+        # Delete any UploadedFiles. These take up tons of unnecessary disk space.
+        @work.file_sets.each do |fileset|
+          if uf = Hyrax::UploadedFile.find_by(file: fileset.label)
+            begin
+              uf.destroy!
+            rescue StandardError => e
+              Rails.logger.warn("Could not delete uploaded file. #{e.class} - #{e.message}")
+            end
           end
         end
-      end
 
-      # Remove any edit holds placed on an item
-      @work_proxy.lift_hold
+        # Remove any edit holds placed on an item
+        @work_proxy.lift_hold
+      end
 
       # Check if the parent operation is finished
       # and do any cleanup if so    
