@@ -10,6 +10,7 @@ class BulkOps::Parser
   include BulkOps::InterpretScalarBehavior
   include BulkOps::InterpretOptionsBehavior
   include BulkOps::InterpretControlledBehavior
+  include BulkOps::InterpretTypeBehavior
 
   def self.unescape_csv(value)
     value.gsub(/\\(['";,])/,'\1')
@@ -82,13 +83,14 @@ class BulkOps::Parser
     interpret_relationship_fields
     setMetadataInheritance
     interpret_option_fields
+    interpret_type_field
     if @proxy.work_id.present? && @options['discard_existing_metadata']
       @metadata.deep_merge!(self.class.get_negating_metadata(@proxy.work_id))
     end
-    interpret_file_fields
+    interpret_file_fields unless @proxy.collection?
     interpret_controlled_fields
     interpret_scalar_fields
-    connect_existing_work 
+    connect_existing_work
     @proxy.update(status: "ERROR", message: "error parsing spreadsheet line") if @parsing_errors.present?
     @proxy.proxy_errors = (@proxy.proxy_errors || []) + @parsing_errors
     return @metadata
@@ -109,10 +111,15 @@ class BulkOps::Parser
   end
 
   def connect_existing_work
-    return unless (column_name = @options["update_identifier"])
-    return unless (key = @raw_row.to_h.keys.find{|key| key.to_s.parameterize.downcase.gsub("_","") == column_name.to_s.parameterize.downcase.gsub("_","")})
-    return unless (value = @raw_row[key]).present?
-    return unless (work_id = find_work_id_from_unique_metadata(key, value))
+    if @proxy.collection?
+      cols = Collection.where(title: @metadata['title'].first)
+      work_id = cols.first.id unless cols.blank?
+    else
+      return unless (column_name = @options["update_identifier"])
+      return unless (key = @raw_row.to_h.keys.find{|key| key.to_s.parameterize.downcase.gsub("_","") == column_name.to_s.parameterize.downcase.gsub("_","")})
+      return unless (value = @raw_row[key]).present?
+      return unless (work_id = find_work_id_from_unique_metadata(key, value))
+    end
     proxy.update(work_id: work_id)
   end
 
