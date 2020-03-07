@@ -24,6 +24,10 @@ class BulkOps::WorkProxy < ActiveRecord::Base
     super || operation.work_type || "Work"
   end
 
+  def collection?
+    work_type == "Collection"
+  end
+
   def place_hold
     # TODO make it so nobody can edit the work
   end
