@@ -14,7 +14,7 @@ class BulkOps::WorkJob < ActiveJob::Base
     else
       @work_proxy.work_id = @work.id
       
-      unless @work_proxy.work_type == "Collection"
+      unless @work_proxy.collection?
 
         # If this work has a parent outside of the current operation,
         # and this is the first sibling (we only need to do this once per parent),
