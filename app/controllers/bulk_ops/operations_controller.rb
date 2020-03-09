@@ -93,7 +93,7 @@ module BulkOps
         redirect_to action: "index"
       end
 
-      params.require([:name,:type,:notified_users])
+      params.require([:name,:notified_users])
 
       # Create a unique operation name if the chosen name is taken
       op_name = BulkOps::Operation.unique_name(params['name'].parameterize, current_user)
@@ -102,15 +102,11 @@ module BulkOps
 
       operation = BulkOps::Operation.create(name: op_name, 
                                             status: "new", 
-                                            stage: "new", 
-                                            operation_type: params['type'], 
+                                            stage: "new",
                                             message: message, 
                                             user: current_user)
 
       operation.status = "OK"
-
-      puts "BULK OPS CREATING BRANCH WITH OPTIONS: #{filtered_options_params.inspect}"
-      puts "ALL PARAMS: #{params.inspect}"
 
       operation.create_branch fields: params['fields'], options: filtered_options_params, operation_type: params['type'].to_sym
 
@@ -401,6 +397,7 @@ module BulkOps
                               ["Remove one list of files and ingest another list of files. Leave other files alone.","remove-and-add"]]
       @visibility_options = [["Public",'open'],
                              ["Private",'restricted'],
+                             ["Request access to media", 'request'],
                              ["UCSC","ucsc"]]
       #TODO pull from registered work types
       @work_type_options = [["Work",'Work'],
