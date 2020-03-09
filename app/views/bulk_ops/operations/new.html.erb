@@ -11,15 +11,6 @@
         <input type="text" name="name" id="bulk-ops-name" />
     </div>
 
-    <div class="bulk-ops-options">
-        <label for="op-type" data-toggle="tooltip" title="Would you like to set up a bulk ingest of new works, or a bulk update of existing works?">Ingest or Update?</label>
-        <select name="type"  id="op-type" onchange="$('.bulk-ops-options.options-panel').hide();$('#operation-options').show(); $('#'+this.value+'-options').show()" >
-            <option disabled selected value> -- Choose Operation Type -- </option>
-            <option value="ingest">Ingest </option>
-            <option value="update">Update </option>
-        </select>
-    </div>
-
     <%= render "operation_options" %>
     <%= render "ingest_options" %>
     <%= render "update_options" %>

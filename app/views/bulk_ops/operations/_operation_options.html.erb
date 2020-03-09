@@ -5,6 +5,27 @@
         <input type="text" name="file_prefix"  value="<%=@operation.options["file_prefix"] || ""%>" />
     </div>
 
+    <div>
+        <label for="visibility" data-toggle="tooltip" title="How would you like to set the default visibility of the imported works? If you're unsure, keep the works private for now and publish them later." >Default Visibility:</label>
+        <select id="visibility" name="visibility">
+            <%= options_for_select @visibility_options, @operation.options["visibility"] || "restricted" %> 
+        </select>
+    </div>
+
+    <div>
+        <label for="work-type" data-toggle="tooltip" title="Which work type would you like to create by default? This can be changed later, and/or overridden in the ingest spreadsheet on a line-by-line basis.">Default Work Type:</label>
+        <select name="work_type" id="work-type">
+            <%= options_for_select @work_type_options, @operation.options["work_type"] || "Work" %> 
+        </select>
+    </div>
+
+    <div>
+        <label for="file-method" data-toggle="tooltip" title="These options determine how the update handles files attached to updated objects. The default option leaves all files alone unless you include a column in your spreadsheet to add or remove specific files.">File Update Method:</label>
+        <select name="file_method" id="file-method">
+            <%= options_for_select @file_update_options, @operation.options['file_method'] || "remove-and-add" %> 
+        </select>
+    </div>
+
     <div title="Any column whose header is on this list will be ignored when ingesting this spreadsheet.">
         <label>Columns to Ignore:</label>
         <ul id="ignored-columns">
