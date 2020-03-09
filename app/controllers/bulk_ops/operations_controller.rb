@@ -108,7 +108,7 @@ module BulkOps
 
       operation.status = "OK"
 
-      operation.create_branch fields: params['fields'], options: filtered_options_params, operation_type: params['type'].to_sym
+      operation.create_branch fields: params['fields'], options: filtered_options_params
 
       case params['type']
       when "ingest"
