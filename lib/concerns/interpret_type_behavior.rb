@@ -3,7 +3,8 @@ module BulkOps::InterpretTypeBehavior
 
   def interpret_type_fields
     @raw_row.each do |field,value|
-      if ["worktype","model","type"].include?(normfield)
+      normfield = field.downcase.parameterize.gsub(/[_\s-]/,'')
+      if ["objecttype","model","type","worktype"].include?(normfield)
         @proxy.update(work_type: format_worktype(value) )
       end
     end
