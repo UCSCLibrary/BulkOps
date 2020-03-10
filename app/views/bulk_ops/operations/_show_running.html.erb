@@ -7,14 +7,14 @@
 
 <div id="operation-progress"></div>
 
-  <script>
-  $( function() {
-    $( "#operation-progress" ).progressbar({value: <%= @num_complete * 100 / @num_works %>});
-  } );
-  </script>
+<script>
+ $( function() {
+     $( "#operation-progress" ).progressbar({value: <%= @num_complete * 100 / @num_works %>});
+ } );
+</script>
 
 <div class="operation-info">
-    <label> Total works to <%= @operation.operation_type %>:</label> <%= @num_works%>
+    <label> Total works affected by this operation:</label> <%= @num_works%>
 </div>
 
 <div class="operation-info">
@@ -22,11 +22,11 @@
 </div>
 
 <div class="operation-info">
-    <label> Works currently being <%= @operation.operation_type %>ed:</label> <%= @num_running %>
+    <label> Works currently being operated on:</label> <%= @num_running %>
 </div>
 
 <div class="operation-info">
-    <label> Works that failed to <%= @operation.operation_type %>:</label> <%= @num_failed %>
+    <label> Works that failed:</label> <%= @num_failed %>
 </div>
 
 <div class="operation-info">
@@ -34,11 +34,9 @@
     <a href="TODO MAKE THIS LINK WORK"><%= @num_complete %></a>
 </div>
 
-<% if @operation.operation_type == "update" %>
-    <button id="new-operation-all"> Create new update from all works in this update</button>
-<% end %>
-<button id="new-operation-completed"> Create new update from all works that have completed this <%= @operation.operation_type%></button>
-<button id="new-operation-failed"> Create new <%= @operation.operation_type %> from all works that have failed this <%= @operation.operation_type%></button>
+<button id="new-operation-all"> Create new operation from all works in this opeartion</button>
+<button id="new-operation-completed"> Create new operation from all works that have completed this operation</button>
+<button id="new-operation-failed"> Create new operation from all works that have failed this operation</button>
 
 
 <div id="log">

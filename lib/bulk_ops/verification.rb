@@ -12,7 +12,7 @@ module BulkOps
       verify_internal_references
       update(message: "verifying that all files exist")
       verify_files
-      verify_works_to_update if operation_type.to_s == "update"
+#      verify_works_to_update if operation_type.to_s == "update"
       unless @verification_errors.blank?
         error_file_name = BulkOps::Error.write_errors!(@verification_errors, git)
         #notify everybody
@@ -152,17 +152,17 @@ module BulkOps
       end
     end
 
-    def verify_works_to_update
-      return [] unless operation_type == "update"
-      get_spreadsheet.each_with_index do |row, row_num|
-        id = get_ref_id(row)
-        #TODO: find by other field. for now just id
-        unless (BulkOps::SolrService.record_exists?(id))
-          @verification_errors << BulkOps::Error.new(type: :cannot_find_work, id: id)
-        end
-      end
-    end
-
+#    def verify_works_to_update
+##      return [] unless operation_type == "update"
+#      get_spreadsheet.each_with_index do |row, row_num|
+#        id = get_ref_id(row)
+#        #TODO: find by other field. for now just id
+#        unless (BulkOps::SolrService.record_exists?(id))
+#          @verification_errors << BulkOps::Error.new(type: :cannot_find_work, id: id)
+#        end
+#      end
+#    end
+#
     def get_ref_id row
       row.each do |field,value| 
         next if field.blank? or value.blank? or field === value

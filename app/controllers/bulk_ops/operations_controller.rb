@@ -71,7 +71,6 @@ module BulkOps
       new_operation = BulkOps::Operation.create(name: name, 
                                                 status: "new", 
                                                 stage: "new", 
-                                                operation_type: 'update', 
                                                 message: message, 
                                                 user: current_user)
       
@@ -346,7 +345,7 @@ module BulkOps
       puts "if operation \"#{op.name}\" isn't running, it'll get applied now"
       unless ["running","complete"].include? op.stage
         op.apply!
-        flash[:notice] = "Applying bulk #{op.operation_type}. Stay tuned to see how it goes!"
+        flash[:notice] = "Applying bulk operation. Stay tuned to see how it goes!"
       end
       render plain: "OK"
     end
