@@ -16,6 +16,8 @@ module BulkOps
                      "order",
                      "next",
                      "work_type",
+                     "object_type",
+                     "type",
                      "collection", 
                      "collection_title",
                      "collection_id",
