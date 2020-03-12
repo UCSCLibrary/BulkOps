@@ -39,7 +39,7 @@
     <hr class="bulk-ops"/>
 
     <%= form_tag("#{@operation.id}/destroy") do %>
-        <p class="big">Cancel and delete this bulk <%=@operation.type %> completely</p>
+        <p class="big">Cancel and delete this bulk operation completely</p>
         <%= render "git_message" %>
         <%= submit_tag("Cancel/Delete") %>
     <% end %>
