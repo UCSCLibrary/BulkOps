@@ -36,9 +36,11 @@ module BulkOps
   OPTIONS_FILENAME = 'configuration.yml'
   ROW_OFFSET = 2
 
-  dirstring = File.join( File.dirname(__FILE__), 'concerns/*.rb')
-  dirstring2 = File.join( File.dirname(__FILE__), 'bulk_ops/**/*.rb')
-  ((Dir[dirstring] || []) + Dir[dirstring2]).uniq.each  do |file| 
+#  dirstring = File.join( File.dirname(__FILE__), 'concerns/*.rb')
+#  dirstring2 = File.join( File.dirname(__FILE__), 'bulk_ops/**/*.rb')
+#  ((Dir[dirstring] || []) + Dir[dirstring2]).uniq.each  do |file| 
+  dirstring = File.join( File.dirname(__FILE__), 'bulk_ops/**/*.rb')
+  (Dir[dirstring] || []).each  do |file| 
     begin
       require file 
     rescue Exception => e
