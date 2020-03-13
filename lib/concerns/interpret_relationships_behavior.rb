@@ -35,7 +35,7 @@ module BulkOps::InterpretRelationshipsBehavior
         end      
         parent = find_parent_proxy(value, field, id_type)
         if parent.collection?
-          add_to_collection(value)
+          add_to_collection(BulkOps::Parser.get_title(@raw_data[parent.row_number]))
         else
           proxy_updates =  { parent_id: parent.id}
           siblings = parent.ordered_children
