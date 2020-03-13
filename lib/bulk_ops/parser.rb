@@ -22,6 +22,14 @@ class BulkOps::Parser
     value_string.split(/(?<!\\)#{BulkOps::SEPARATOR}/).map{|val| val.gsub("\\#{BulkOps::SEPARATOR}",BulkOps::SEPARATOR).strip}
   end
 
+  def self.get_title(sheet: nil, row: )
+    if sheet.present? && row.is_a?(Integer)
+      row = sheet[row]
+    end
+    key, title = row.find{|key, title| key.downcase.strip == "title"}
+    unescape_csv(split_values(title).first)
+  end
+
   def self.normalize_relationship_field_name field
     normfield = field.to_s.downcase.parameterize.gsub(/[_\s-]/,'')
     BulkOps::RELATIONSHIP_FIELDS.find{|rel_field| normfield == rel_field }
