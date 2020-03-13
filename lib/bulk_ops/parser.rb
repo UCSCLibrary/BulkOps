@@ -3,7 +3,7 @@ class BulkOps::Parser
 
   attr_accessor :proxy, :raw_data, :raw_row
 
-  delegate :relationships, :operation, :row_number, :work_id, :visibility, :work_type, :reference_identifier, :order, to: :proxy
+  delegate  :operation, :row_number, :work_id, :visibility, :work_type, :reference_identifier, :order, to: :proxy
 
   include BulkOps::InterpretRelationshipsBehavior
   include BulkOps::InterpretFilesBehavior
@@ -77,13 +77,13 @@ class BulkOps::Parser
     @proxy = proxy if proxy.present?
     @raw_data = raw_data if raw_data.present?
     disambiguate_columns
-    setAdminSet
+    interpret_type_fields
+    setAdminSet unless @proxy.collection?
     #The order here matters a little: interpreting the relationship fields specifies containing collections,
     # which may have opinions about whether we should inherit metadata from parent works
     interpret_relationship_fields
     setMetadataInheritance
     interpret_option_fields
-    interpret_type_fields
     if @proxy.work_id.present? && @options['discard_existing_metadata']
       @metadata.deep_merge!(self.class.get_negating_metadata(@proxy.work_id))
     end
