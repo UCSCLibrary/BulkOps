@@ -141,16 +141,6 @@ module BulkOps
 
       update(stage: "finishing")
 
-      # Attempt to resolve each dangling (objectless) relationships
-      relationships = work_proxies.reduce([]){|all_rels,proxy| all_rels + proxy.relationships.select{|rel| rel.status == "pending"}}
-      relationships.each do |rel| 
-        begin
-          rel.resolve! 
-        rescue StandardError => e
-          @operation_errors << BulkOps::Error.new(:relationship_error, row_number: proxy.row_number, object_id: relationship.id, message: "#{e.class} - #{e.message}" )
-        end
-      end
-      
       work_proxies.each do |proxy| 
         work = nil
         begin
