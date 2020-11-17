@@ -12,11 +12,11 @@ module BulkOps::InterpretTypeBehavior
     # If the proxy is a collection, go ahead and create or link it now. Titles are unique, so we can use those as ids. 
     if @proxy.work_type.downcase == "collection"
       title = BulkOps::Parser.get_title(@raw_row)
-      existing_collection = (Collection.where(title: collection).select{|title| title.downcase == collection.downcase} || []).first
+      existing_collection = (Collection.where(title: title).select{|other_title| other_title.downcase == title.downcase} || []).first
       if existing_collection.present?      
         @proxy.work_id = existing_collection.id
       else
-        new_collection = Collection.create(title: [collection.to_s], depositor: operation.user.email, collection_type: Hyrax::CollectionType.find_by(title:"User Collection"))
+        new_collection = Collection.create(title: [title.to_s], depositor: operation.user.email, collection_type: Hyrax::CollectionType.find_by(title:"User Collection"))
         @proxy.work_id = new_collection.id
       end
       @proxy.save
