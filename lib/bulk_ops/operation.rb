@@ -339,7 +339,7 @@ module BulkOps
     private
 
     def git
-      @git ||= BulkOps::GithubAccess.new(name, @user)
+      @git ||= BulkOps::GithubAccess.new(name, user || User.first)
     end
 
     def create_new_spreadsheet(fields: nil, work_ids: nil)
