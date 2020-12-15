@@ -154,11 +154,10 @@ class BulkOps::GithubAccess
     list_branches.map{|branch| branch[:name]}
   end
 
-  def update_spreadsheet file, message: false
+  def update_spreadsheet file_contents, message: false
     message ||= "updating metadata spreadsheet through hyrax browser interface."
     sha = get_file_sha(spreadsheet_path)
-    file = File.new(file) if file.is_a?(String) && File.exist?(file)
-    client.update_contents(repo, spreadsheet_path, message, sha, file.read, branch: name)
+    client.update_contents(repo, spreadsheet_path, message, sha, file_contents, branch: name)
   end
 
   def update_options options, message: false
@@ -186,7 +185,7 @@ class BulkOps::GithubAccess
 
   def load_metadata branch: nil, return_headers: false
     branch ||= name
-    CSV.parse(Base64.decode64(get_file_contents(spreadsheet_path, ref: branch)), {headers: true, return_headers: return_headers})
+    CSV.parse(Base64.decode64(get_file_contents(spreadsheet_path, ref: branch)).force_encoding('UTF-8').encode, {headers: true, return_headers: return_headers})
   end
 
   def log_ingest_event log_level, row_number, event_type, message, commit_sha = nil
@@ -259,7 +258,7 @@ class BulkOps::GithubAccess
 
   def client
     return @client if @client
-    return default_client if @user.nil?
+    @user ||= User.first
     return default_client unless (cred = BulkOps::GithubCredential.find_by(user_id: @user.id))
     return default_client unless (token = cred.oauth_token)
     client ||= Octokit::Client.new(access_token: token)
