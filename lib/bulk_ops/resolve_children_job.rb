@@ -8,6 +8,7 @@ class BulkOps::ResolveChildrenJob < ActiveJob::Base
       ordered_file_sets = work.ordered_members & work.file_sets
       work.ordered_members = proxy.ordered_children.map{|proxy| ActiveFedora::Base.find(proxy.work_id)} + ordered_file_sets
       work.save
+      proxy.ordered_children.each{|proxy| ActiveFedora::Base.find(proxy.work_id).save}
     else
       BulkOps::ResolveChildrenJob.set(wait: 30.minutes).perform_later(proxy_id)
     end

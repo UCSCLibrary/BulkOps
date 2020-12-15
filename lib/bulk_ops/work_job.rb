@@ -19,7 +19,7 @@ class BulkOps::WorkJob < ActiveJob::Base
         # If this work has a parent outside of the current operation,
         # and this is the first sibling (we only need to do this once per parent),
         # queue a job to resolve that work's new children
-        if @work_proxy.parent_id.present? && (parent_proxy = BulkOps::WorkProxy.find(parent_id))
+        if @work_proxy.parent_id.present? && (parent_proxy = BulkOps::WorkProxy.find(@work_proxy.parent_id))
           if parent_proxy.operation_id != @work_proxy.operation_id
             if @work_proxy.previous_sibling.nil?
               BulkOps::ResolveChildrenJob.set(wait: 10.minutes).perform_later(parent_proxy.id)
@@ -77,7 +77,12 @@ class BulkOps::WorkJob < ActiveJob::Base
     update_status "running", "Started background task at #{DateTime.now.strftime("%d/%m/%Y %H:%M")}"
     ability = Ability.new(user)
     env = Hyrax::Actors::Environment.new(@work, ability, attributes)
-    update_status "complete", Hyrax::CurationConcern.actor.send(work_action,env)
+    if @work_proxy.collection?
+      actor = CollectionMiddlewareStack.build_stack.build(Hyrax::Actors::Terminator.new)
+    else
+      actor = Hyrax::CurationConcern.actor
+    end
+    update_status "complete", actor.send(work_action,env)
   end
 
   private

@@ -28,12 +28,8 @@
         
         <hr class="bulk-ops"/>
 
-        <a class="bulk-ops-collapse-link collapsed" data-toggle="collapse" href="#edit-options" aria-expanded="false" aria-controls="edit-options">
-            Show/Hide <%= @operation.operation_type.capitalize %> Options
-        </a>
         <div class="op-action collapse" id="edit-options" aria-expanded="false" >
             <%= render "operation_options" %>
-            <%= render "#{@operation.operation_type}_options" %>
             <%= render "git_message" %>
             <input type="submit" name ="edit_options" value="Save Changes" />
         </div>
@@ -43,7 +39,7 @@
     <hr class="bulk-ops"/>
 
     <%= form_tag("#{@operation.id}/destroy") do %>
-        <p class="big">Cancel and delete this bulk <%=@operation.type %> completely</p>
+        <p class="big">Cancel and delete this bulk operation completely</p>
         <%= render "git_message" %>
         <%= submit_tag("Cancel/Delete") %>
     <% end %>
@@ -51,7 +47,7 @@
     <hr class="bulk-ops"/>
 
     <%= form_tag("/bulk_ops/#{@operation.id}/request_apply") do %> 
-        <p class="big">Flag that the spreadsheet is ready after the final version has been uploaded and the bulk <%= @operation.operation_type %> is ready to apply. Approval from another administator may be necessary.</p>
+        <p class="big">Flag that the spreadsheet is ready after the final version has been uploaded and the bulk operation is ready to apply. Approval from another administator may be necessary.</p>
         <%= render "git_message" %>
         <%= submit_tag "Finished" %>
     <% end %>

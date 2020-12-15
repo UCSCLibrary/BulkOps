@@ -7,7 +7,9 @@
 </div>
 
 <div class="operation-info">
-    <label> Number of works that failed to ingest/update:</label> <%= @num_failed %>
+
+    <label> Number of works that failed in this operation:</label> <%= @num_failed %>
+
 </div>
 
 <div class="operation-info">
@@ -18,14 +20,16 @@
 
 <%= form_tag "#{@operation.id}/duplicate"  do %>
     <input type="hidden" name="status_to_edit" value="all"/>
+
     <button  id="new-operation-all"> Create new operation from all works in this operation %> </button>
 <% end %>
 <%= form_tag "#{@operation.id}/duplicate"  do %>
     <input type="hidden" name="status_to_edit" value="complete"/>
-    <button id="new-operation-completed"> Create new opeartion from all works that have successfully completed in this operation</button>
+    <button id="new-operation-completed"> Create new opertion from all works that have successfully completed in this operation</button>
 <% end %>
 <%= form_tag "#{@operation.id}/duplicate"  do %>    
     <input type="hidden" name="status_to_edit" value="error"/>
     <button id="new-operation-failed"> Create new operation from all works that have failed this oepration</button>
+
 <% end %>
 

@@ -25,8 +25,7 @@ module BulkOps::InterpretRelationshipsBehavior
       when "collection"
         # If the field specifies the name or ID of a collection,
         # find or create the collection and update the metadata to match
-        col = find_or_create_collection(value)
-        ( @metadata[:member_of_collection_ids] ||= [] ) << col.id if col
+        add_to_collection(value)
         next
       when "parent"
         # Correctly interpret the notation "row:349", "id:s8df4j32w" etc in a cell
@@ -35,17 +34,26 @@ module BulkOps::InterpretRelationshipsBehavior
           value = split.last
         end      
         parent = find_parent_proxy(value, field, id_type)
-        proxy_updates =  { parent_id: parent.id}
-        siblings = parent.ordered_children
-        if siblings.present? && @proxy.previous_sibling_id.nil?
-          proxy_updates[:previous_sibling_id] = siblings.last.id
+        if parent.collection?
+          add_to_collection(BulkOps::Parser.get_title(@raw_data[parent.row_number]))
+        else
+          proxy_updates =  { parent_id: parent.id}
+          siblings = parent.ordered_children
+          if siblings.present? && @proxy.previous_sibling_id.nil?
+            proxy_updates[:previous_sibling_id] = siblings.last.id
+          end
+          @proxy.update(proxy_updates)  
         end
-        @proxy.update(proxy_updates)  
       end
     end
   end
 
   private
+
+  def add_to_collection collection_name
+    collection = find_or_create_collection(collection_name)
+    ( @metadata[:member_of_collection_ids] ||= [] ) << collection.id if collection.present?
+  end
 
   def find_previous_parent_row field="parent"
     #Return the row number of the most recent preceding row that does

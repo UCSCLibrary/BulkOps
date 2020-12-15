@@ -32,7 +32,7 @@ module BulkOps
 
     def delete_all
       unless operation.type == "ingest"
-        redirect_to action: "show", id: @operation.id, error: "Can only delete all works from an ingest operation, not an #{operation.type}" 
+        redirect_to action: "show", id: @operation.id, error: "Can only delete all works from an ingest operation, not an #{operation.type}" and return
       end
       # delete all the works
       operation.delete_all
@@ -49,7 +49,7 @@ module BulkOps
     def duplicate 
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
       case params['status_to_edit']
       when "all"
@@ -71,7 +71,6 @@ module BulkOps
       new_operation = BulkOps::Operation.create(name: name, 
                                                 status: "new", 
                                                 stage: "new", 
-                                                operation_type: 'update', 
                                                 message: message, 
                                                 user: current_user)
       
@@ -90,7 +89,7 @@ module BulkOps
     def create
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "index"
+        redirect_to action: "index" and return
       end
 
       params.require([:name,:notified_users])
@@ -149,7 +148,7 @@ module BulkOps
     def update
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
       
 #      params.permit(available_options).permit(ignored_columns: []).permit("edit_options")
@@ -158,7 +157,7 @@ module BulkOps
       if params['spreadsheet'] && @operation.name
         @operation.update_spreadsheet params['spreadsheet'], message: params['git_message']
         flash[:notice] = "Spreadsheet updated successfully"
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
 
       #If new options have been defined, update them in github
@@ -170,9 +169,9 @@ module BulkOps
           end
           BulkOps::GithubAccess.update_options(@operation.name, options, message: params['git_message'])
           flash[:notice] = "The operation options were updated successfully"
-          redirect_to action: "show", id: @operation.id
+          redirect_to action: "show", id: @operation.id and return
         else
-          redirect_to action: "show", id: @operation.id
+          redirect_to action: "show", id: @operation.id and return
         end
       end
       destroy if params["destroy"]
@@ -182,14 +181,16 @@ module BulkOps
     def finalize_draft
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
       @operation.finalize_draft
       redirect_to action: "show"
     end
     
     def edit
-      redirect_to action: "show", id: @operation.id unless @operation.draft?
+      unless @operation.draft?
+        redirect_to action: "show", id: @operation.id  and return
+      end
       added = false
       destroyed = false
 
@@ -282,7 +283,7 @@ module BulkOps
     def destroy
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
 
       @operation.destroy!
@@ -293,7 +294,7 @@ module BulkOps
     def request_apply
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
 
       @operation.stage = "verifying"
@@ -306,7 +307,7 @@ module BulkOps
     def approve
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
 
       begin
@@ -325,7 +326,7 @@ module BulkOps
     def apply
       unless @github_authenticated
         flash[:notice] = "Please log in to github before taking this action" 
-        redirect_to action: "show", id: @operation.id
+        redirect_to action: "show", id: @operation.id and return
       end
 
       parameters = JSON.parse request.raw_post
@@ -346,7 +347,7 @@ module BulkOps
       puts "if operation \"#{op.name}\" isn't running, it'll get applied now"
       unless ["running","complete"].include? op.stage
         op.apply!
-        flash[:notice] = "Applying bulk #{op.operation_type}. Stay tuned to see how it goes!"
+        flash[:notice] = "Applying bulk operation. Stay tuned to see how it goes!"
       end
       render plain: "OK"
     end
