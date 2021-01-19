@@ -23,6 +23,7 @@ class BulkOps::Parser
   end
 
   def self.get_title(row)
+    row = row.operation.get_spreadsheet[row.row_number] if row.is_a? BulkOps::WorkProxy
     key, title = row.find{|key, title| key.downcase.strip == "title"}
     unescape_csv(split_values(title).first)
   end
@@ -117,7 +118,7 @@ class BulkOps::Parser
 
   def connect_existing_work
     if @proxy.collection?
-      cols = Collection.where(title: @metadata['title'].first)
+      cols = Collection.where(title: (@metadata['title'] || []).first)
       work_id = cols.first.id unless cols.blank?
     else
       return unless (column_name = @options["update_identifier"])
