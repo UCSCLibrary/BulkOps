@@ -122,7 +122,7 @@ module BulkOps
       # Parse each spreadsheet row and create a background job for each proxy we just created
       incomplete_row_numbers.each do |row_number|
         values = @metadata[row_number]
-        proxy = work_proxies.find_by(row_number: row_number)
+        next unless( proxy = work_proxies.find_by(row_number: row_number))
         proxy.update(message: "interpreted at #{DateTime.now.strftime("%d/%m/%Y %H:%M")} " + proxy.message)
         data = BulkOps::Parser.new(proxy, @metadata,options).interpret_data(raw_row: values)
         next unless proxy.proxy_errors.blank?
