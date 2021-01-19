@@ -1,4 +1,4 @@
-class VerifyWorksJob < Hyrax::ApplicationJob
+class VerifyWorksJob < ActiveJob::Base
 
   NOTIFICATION_RECIPIENTS = ['ethenry@ucsc.edu']
   
