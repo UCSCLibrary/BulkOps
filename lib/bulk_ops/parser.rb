@@ -90,7 +90,7 @@ class BulkOps::Parser
     interpret_relationship_fields
     setMetadataInheritance
     interpret_option_fields
-    if @proxy.work_id.present? && @options['discard_existing_metadata']
+    if @proxy.present? && @proxy.work_id.present? && @options['discard_existing_metadata']
       @metadata.deep_merge!(self.class.get_negating_metadata(@proxy.work_id))
     end
     interpret_file_fields unless @proxy.collection?

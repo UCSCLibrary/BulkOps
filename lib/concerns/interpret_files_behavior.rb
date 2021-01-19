@@ -33,7 +33,7 @@ module BulkOps::InterpretFilesBehavior
           rescue Exception => e  
             report_error(:upload_error,
                          message: "Error opening file: #{ filepath } -- #{e}",
-                         file: File.join(BulkOps::INGEST_MEDIA_PATH,filename),
+                         file: filepath,
                          row_number: row_number)
           end
         end

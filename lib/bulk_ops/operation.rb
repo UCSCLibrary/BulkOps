@@ -6,6 +6,7 @@ module BulkOps
     has_many :work_proxies, class_name: "::BulkOps::WorkProxy"
 
     include BulkOps::Verification
+    include BulkOps::PostIngestCheckBehavior
 
     attr_accessor :work_type, :visibility, :reference_identifier, :metadata
     
@@ -134,6 +135,7 @@ module BulkOps
       end
       # If any errors have occurred, make sure they are logged in github and users are notified.
       report_errors!
+      BulkOps::VerifyWorksJob.perform_later(job_name: "post-bulk-op-#{id}")
     end
 
     def check_if_finished
@@ -268,7 +270,35 @@ module BulkOps
 
     def update_spreadsheet file, message: nil
       git.update_spreadsheet(file, message: message)
+#      contents = read_spreadsheet(file)
+#      git.update_spreadsheet(contents, message: message)
     end
+
+#    def read_spreadsheet(file)
+#      file = File.new(file) if file.is_a?(String) && File.exist?(file)
+#      file_data = file.readlines.map(&:chomp)
+#
+#      # If there is a header row
+#      if (option_string = file_data[0].to_s).downcase.gsub("_"," ").include?("ingest name")
+#        # Set the options according to the header row
+#        # Reset all the row numbers in the spreadsheet
+#        sheet = CSV.parse(file_data[1..(file_data.length-1)], headers: true)
+#        parent_col = sheet.headers.find{|head| head.downcase.strip == "parent"}
+#        sheet.each do |row|
+#          next unless (parent = row[parent_col])
+#          if parent.to_i.to_s == parent.to_s
+#            row[parent_col] = parent.to_i - 1
+#          elsif ((id_type,rownum) = parent.split(':')).last.present?
+#            if rownum.present? && (rownum.to_i.to_s == rownum.to_s)
+#              row[parent_col] = rownum.to_i - 1
+#            end
+#          end
+#        end
+#        sheet.to_s
+#      else
+#        file.read
+#      end
+#    end
 
     def update_options options, message=nil
       git.update_options(options, message: message)

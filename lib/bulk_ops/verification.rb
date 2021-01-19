@@ -187,7 +187,7 @@ module BulkOps
           next unless (obj_id = row[relationship])
           if (split = obj_id.split(':')).present? && split.count == 2
             ref_id = split[0].downcase
-            obj_id = split[1]
+            obj_id = split[1].strip
           end
           
           if ref_id == "row" || (ref_id.include?("row") && obj_id.is_a?(Integer))
