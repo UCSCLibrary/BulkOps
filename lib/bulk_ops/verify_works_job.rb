@@ -1,4 +1,4 @@
-class VerifyWorksJob < ActiveJob::Base
+class BulkOps::VerifyWorksJob < ActiveJob::Base
 
   NOTIFICATION_RECIPIENTS = ['ethenry@ucsc.edu']
   
